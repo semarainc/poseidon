@@ -32,10 +32,14 @@ def load_user(user_id):
 from project.users.views import users_blueprint
 from project.products.views import products_blueprint
 from project.items.views import items_blueprint
+from project.customer.views import customer_blueprint
+from project.supplier.views import supplier_blueprint
 
 app.register_blueprint(users_blueprint)
 app.register_blueprint(products_blueprint)
 app.register_blueprint(items_blueprint)
+app.register_blueprint(customer_blueprint)
+app.register_blueprint(supplier_blueprint)
 
 
 # ROUTES
