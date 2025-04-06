@@ -1,0 +1,206 @@
+{% from "_formshelper.html" import render_field %}
+<!DOCTYPE html>
+<html>
+<head>
+    <link rel="icon" type="image/x-icon" href="static/images/404.svg">
+    <title>Input Pelanggan</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.datatables.net/1.11.5/css/jquery.dataTables.min.css" rel="stylesheet">
+    <style>
+        .container-div {
+            padding: 20px;
+            margin: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container mt-4">
+        <!-- Form Input -->
+        <div class="container-div">
+            {{ form.csrf_token }}
+            <div class="form-group">
+                {{ form.nama.label }}
+                {{ render_field(form.nama, class="form-control", id="nama", type="text", placeholder="Nama Pelanggan") }}
+            </div>
+            <div class="form-group">
+                {{ form.alamat.label }}
+                {{ render_field(form.alamat, class="form-control", id="alamat", type="text", placeholder="Alamat") }}
+            </div>
+            <div class="form-group">
+                {{ form.telp.label }}
+                {{ render_field(form.telp, class="form-control", id="telp", type="text", placeholder="Telp") }}
+            </div>
+            <button onclick="saveItem()" class="btn btn-primary">Simpan Data</button>
+        </div>
+
+        <!-- Data Table -->
+        <div class="container-div">
+            <table id="itemsTable" class="display" style="width:100%">
+                <thead>
+                    <tr>
+                        <th>Kode Supplier</th>
+                        <th>Nama</th>
+                        <th>Alamat</th>
+                        <th>Telp</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+            </table>
+        </div>
+    </div>
+
+    <!-- Modals -->
+    <div class="modal fade" id="confirmModal">
+        <!-- Modal content -->
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.datatables.net/1.11.5/js/jquery.dataTables.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.0.5/purify.min.js"></script>
+    <script src="static/js/message_box.js"></script>
+    <script>
+        let table;
+        let isEditMode = false;
+        let currentEditId = null;
+
+        // Initialize DataTable
+        function initTable() {
+            table = $('#itemsTable').DataTable({
+                processing: true,
+                serverSide: true,
+                ajax: "{{ url_for('supplier.get_suppliers') }}",
+                columns: [
+                    { data: 'kode_supplier' },
+                    { data: 'nama' },
+                    { data: 'alamat' },
+                    { data: 'telp' },
+                    {
+                        data: null,
+                        render: function(data, type, row) {
+                            return `
+                                <button class="btn btn-warning btn-edit" data-kode-supplier="${row.kode_supplier}">Edit</button>
+                                <button class="btn btn-danger btn-delete" data-kode-supplier="${row.kode_supplier}">Delete</button>
+                            `;
+                        }
+                    }
+                ]
+            });
+        }
+
+        // Save/Update Item
+        async function saveItem() {
+            const data = {
+                nama: document.getElementById('nama').value,
+                alamat: document.getElementById('alamat').value,
+                telp: document.getElementById('telp').value,
+            };
+
+            console.log(currentEditId);
+            const url = isEditMode ? `/supplier_update/${currentEditId}` : '/supplier';
+            const method = isEditMode ? 'PUT' : 'POST';
+
+            const response = await fetch(url, {
+                method: method,
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            });
+
+            let result = null;
+            try {
+                result = await response.json();
+                console.log(result);
+            } catch (error) {
+                console.error("Gagal parsing JSON:", error);
+                result = {"message" : "Server Error"};
+                // Handle error (misalnya tampilkan pesan umum)
+            }
+            console.log(result);
+            if (result) {
+                if(response.ok) {
+                    table.ajax.reload();
+                    clearForm();
+                    message_box.info(DOMPurify.sanitize(
+                        `<p>Data berhasil disimpan!</p>
+                        <ul>
+                            <li>Timestamp: ${new Date().toLocaleTimeString()}</li>
+                            <li>Status: <strong>Success</strong></li>
+                            <li>Pesan: ${result.message}</li>
+                        </ul>`,
+                        'Operasi Berhasil'
+                    ));
+                    isEditMode = false;
+                    currentEditId = null;
+                }
+                else{
+                    message_box.alert(DOMPurify.sanitize(
+                        `<p>Data Gagal disimpan!</p>
+                        <ul>
+                            <li>Timestamp: ${new Date().toLocaleTimeString()}</li>
+                            <li>Status: <strong>Gagal</strong></li>
+                            <li>Alasan: ${result.message}</li>
+                        </ul>`,
+                        'Operasi Gagal!'
+                    ));
+                    console.log("Error: " + result);
+                }
+            }
+        }
+        // Edit Handler
+        document.addEventListener('click', async function(e) {
+            if(e.target.classList.contains('btn-edit')) {
+                const kodesupp = e.target.dataset.kodeSupplier;
+                console.log(e.target.dataset);
+                const response = await fetch(`/supplier_update/${kodesupp}`);
+                const data = await response.json();
+
+                document.getElementById('nama').value = data.nama;
+                document.getElementById('alamat').value = data.alamat;
+                document.getElementById('telp').value = data.telp;
+                isEditMode = true;
+                currentEditId = kodesupp;
+            }
+        });
+
+        // Delete Handler
+        document.addEventListener('click', async function(e) {
+            if(e.target.classList.contains('btn-delete')) {
+                const kodesupp = e.target.dataset.kodeSupplier;
+                const result = await message_box.yesNo(DOMPurify.sanitize(
+                    `<div style="display: flex; align-items: center; gap: 16px;">
+                        <i class="material-icons" style="font-size: 40px;">delete_forever</i>
+                        <div>
+                            File akan dihapus secara permanen.
+                            <span style="color: #e91e63;">Tindakan ini tidak dapat dibatalkan!</span>
+                        </div>
+                    </div>`,
+                    'Konfirmasi Penghapusan'
+                ));
+
+                if (result) {
+                    await fetch(`/supplier_update/${kodesupp}`, { method: 'DELETE' });
+                    table.ajax.reload();
+                } else {
+                    console.log('User memilih No');
+                }
+            }
+        });
+
+        function clearForm() {
+            document.getElementById('nama').value = '';
+            document.getElementById('alamat').value = '';
+            document.getElementById('telp').value = '';
+            isEditMode = false;
+            currentEditId = null;
+        }
+
+        window.onload = initTable;
+        clearForm();
+    </script>
+</body>
+</html>
