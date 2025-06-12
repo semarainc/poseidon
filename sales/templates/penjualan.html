@@ -97,6 +97,17 @@
                     <h5 class="mb-0"><i class="fas fa-user me-2"></i>Informasi Transaksi</h5>
                 </div>
                 <div class="card-body">
+                    <!-- Ringkasan Harga -->
+                    <div id="transaksiPriceSummary" class="mb-3 border rounded p-2 bg-light">
+                        <div class="d-flex justify-content-between">
+                            <span>Total Item:</span>
+                            <span id="transTotalItems" class="fw-bold">0</span>
+                        </div>
+                        <div class="d-flex justify-content-between mt-1">
+                            <span>Total Harga:</span>
+                            <span id="transTotalHarga" class="fw-bold text-success">Rp 0</span>
+                        </div>
+                    </div>
                     <div class="mb-3">
                         <label for="pelangganSelect" class="form-label">Pelanggan (Opsional)</label>
                         <select id="pelangganSelect" class="form-select">
@@ -145,6 +156,13 @@
     </div>
 </div>
 
+<!-- Loading overlay to prevent user interaction during slow network requests -->
+<div id="loadingOverlay" class="position-fixed top-0 start-0 w-100 h-100 d-flex flex-column align-items-center justify-content-center bg-light bg-opacity-75 d-none" style="z-index: 2000;">
+    <div class="spinner-border text-primary" role="status">
+        <span class="visually-hidden">Loading...</span>
+    </div>
+    <div class="mt-2">Mohon tunggu...</div>
+</div>
 
 <div class="modal fade" id="modalKonfirmasi" tabindex="-1" aria-labelledby="modalKonfirmasiLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
@@ -220,6 +238,7 @@ async function syncQueuesFromBackend() {
 }
 
 async function addQueue() {
+    showLoadingOverlay();
     const newQueueName = `Antrean #${salesQueues.length + 1}`;
     try {
         const res = await fetch('/sales/antrian/tambah', {
@@ -249,10 +268,14 @@ async function addQueue() {
     } catch (e) {
         console.error('Error saat menambah antrean:', e);
         showToast('Error', 'Tidak dapat menambah antrean: ' + e.message, 'error');
+    } finally {
+        hideLoadingOverlay();
     }
 }
 
 async function deleteQueue(queueId) {
+    showLoadingOverlay();
+    try {
     const queue = salesQueues.find(q => q.id === queueId);
     if (queue && queue.backendId) {
         await fetch(`/sales/antrian/${queue.backendId}/hapus`, {method: 'POST', keepalive: true});
@@ -266,6 +289,12 @@ async function deleteQueue(queueId) {
             renderQueueTabs();
             updateCartDisplay();
         }
+        }
+    } catch(err) {
+        console.error('Gagal menghapus antrean:', err);
+        showToast('Error', 'Gagal menghapus antrean', 'error');
+    } finally {
+        hideLoadingOverlay();
     }
 }
 
@@ -332,6 +361,19 @@ function deepCopyCart(cart) {
     return cart.map(item => ({ ...item })); 
 }
 
+// === LOADING OVERLAY HELPERS ===
+function showLoadingOverlay() {
+    const ov = document.getElementById('loadingOverlay');
+    if (ov) {
+        ov.classList.remove('d-none');
+    }
+}
+function hideLoadingOverlay() {
+    const ov = document.getElementById('loadingOverlay');
+    if (ov) {
+        ov.classList.add('d-none');
+    }
+}
 
 function renderQueueTabs() {
     const tabsContainer = document.getElementById('salesQueueTabs');
@@ -422,6 +464,7 @@ function addToCart(id, nama, kode, harga, stok, satuan, hargaGrosir, batasMinima
             
             // Periksa apakah harus menggunakan harga grosir
             if (hargaGrosir && existingItem.jumlah >= (batasMinimalGrosir || 10)) {
+                if (!existingItem.harga_eceran) { existingItem.harga_eceran = existingItem.harga; }
                 existingItem.harga = parseFloat(hargaGrosir);
                 existingItem.tipe_harga = 'grosir';
             }
@@ -436,6 +479,7 @@ function addToCart(id, nama, kode, harga, stok, satuan, hargaGrosir, batasMinima
             nama, 
             kode, 
             harga: hargaItem, 
+            harga_eceran: hargaItem,
             jumlah: 1, 
             stok_awal: itemOriginalStock,
             satuan: satuan || 'Pcs',
@@ -529,6 +573,7 @@ function incrementQuantity(itemId) {
             
             // Periksa apakah harus menggunakan harga grosir
             if (item.harga_grosir && item.jumlah >= item.batas_minimal_grosir) {
+                if (!item.harga_eceran) { item.harga_eceran = item.harga; }
                 item.harga = item.harga_grosir;
                 item.tipe_harga = 'grosir';
             }
@@ -581,6 +626,7 @@ function updateQuantity(itemId, newQuantityStr) {
             // Periksa apakah harus menggunakan harga grosir atau eceran
             if (item.harga_grosir) {
                 if (quantity >= item.batas_minimal_grosir) {
+                    if (!item.harga_eceran) { item.harga_eceran = item.harga; }
                     item.harga = item.harga_grosir;
                     item.tipe_harga = 'grosir';
                 } else if (item.tipe_harga === 'grosir') {
@@ -611,7 +657,11 @@ function removeFromCart(itemId) {
     const activeQ = salesQueues.find(q => q.id === activeQueueId);
     if (!activeQ) return;
     
-    activeQ.cart = activeQ.cart.filter(item => item.id !== itemId);
+    const item = activeQ.cart.find(i => i.id === itemId);
+    if (!item) return;
+    if (!confirm(`Hapus ${item.nama} dari keranjang?`)) { return; }
+    
+    activeQ.cart = activeQ.cart.filter(i => i.id !== itemId);
     updateCartDisplay();
     updateQueueCartToBackend(activeQueueId);
 }
@@ -629,6 +679,12 @@ function calculateTotal() { // Calculates based on the active queue's cart
     }
     document.getElementById('totalItems').textContent = totalItems;
     document.getElementById('totalHarga').textContent = 'Rp ' + totalHarga.toLocaleString();
+    
+    // Update ringkasan harga di panel Informasi Transaksi (kanan)
+    const transItemsEl = document.getElementById('transTotalItems');
+    if (transItemsEl) transItemsEl.textContent = totalItems;
+    const transHargaEl = document.getElementById('transTotalHarga');
+    if (transHargaEl) transHargaEl.textContent = 'Rp ' + totalHarga.toLocaleString();
     return { totalItems, totalHarga };
 }
 
@@ -882,7 +938,7 @@ function handleShortcut(e) {
 }
 
 // Function to search for products by exact barcode
-function searchBarangByExactBarcode(barcode) {
+function searchBarangByExactBarcode(barcode, hideAfterResults) {
     if (!activeQueueId) return;
     const searchResultsDiv = document.getElementById('searchResults');
     
@@ -890,7 +946,8 @@ function searchBarangByExactBarcode(barcode) {
     .then(response => response.json())
     .then(data => {
         if (data.length > 0) {
-            const exactMatch = data.find(item => item.kode_barang === barcode);
+            const lowerBarcode = (barcode || '').toLowerCase();
+            const exactMatch = data.find(item => (item.kode_barang || '').toLowerCase() === lowerBarcode);
             if (exactMatch) {
                 // Found exact match by barcode - add directly to cart
                 const barang = exactMatch;
@@ -905,20 +962,24 @@ function searchBarangByExactBarcode(barcode) {
                     barang.batas_minimal_grosir || 10
                 );
                 showToast('Sukses', `Barang "${barang.nama_barang}" berhasil ditambahkan ke keranjang`, 'success');
+                // Hide search results temporarily if requested
+                if (hideAfterResults) {
+                    searchResultsDiv.innerHTML = '';
+                    searchResultsDiv.classList.add('d-none');
+                }
             } else {
                 // Show search results
+                searchResultsDiv.classList.remove('d-none');
                 searchBarangApiCall();
             }
         } else {
+            searchResultsDiv.classList.remove('d-none');
             // No results found
             searchResultsDiv.innerHTML = '<div class="list-group-item text-muted">Barang tidak ditemukan.</div>';
             showToast('Peringatan', 'Barang Tidak Ditemukan', 'error');
         }
     })
-    .catch(error => {
-        console.error("Error searching for barcode:", error);
-        searchResultsDiv.innerHTML = '<div class="list-group-item text-danger">Terjadi kesalahan saat mencari barang.</div>';
-    });
+    .catch(error => { console.error("Error searching for barcode:", error); searchResultsDiv.innerHTML = '<div class="list-group-item text-danger">Terjadi kesalahan saat mencari barang.</div>';});
 }
 
 document.getElementById('addQueueBtn').addEventListener('click', addQueue);
@@ -956,7 +1017,7 @@ document.addEventListener('DOMContentLoaded', async function() {
         if (e.key === 'Enter') {
             if (barcodeBuffer.length > 3) { 
                 document.getElementById('searchBarang').value = barcodeBuffer; 
-                searchBarangByExactBarcode(barcodeBuffer); // Use exact barcode search
+                searchBarangByExactBarcode(barcodeBuffer, true); // Use exact barcode search
             }
             barcodeBuffer = ''; 
             e.preventDefault(); 
@@ -973,7 +1034,7 @@ document.addEventListener('DOMContentLoaded', async function() {
             e.preventDefault();
             const query = this.value.trim();
             if (query.length > 0) {
-                searchBarangByExactBarcode(query);
+                searchBarangByExactBarcode(query, false);
             }
         }
     });
@@ -987,11 +1048,17 @@ document.addEventListener('DOMContentLoaded', async function() {
 function searchBarangManual() { searchBarangApiCall(); }
 
 function searchBarangApiCall() {
-    if (!activeQueueId) return; 
-    const query = document.getElementById('searchBarang').value;
+    if (!activeQueueId) return;
+    const searchInputEl = document.getElementById('searchBarang');
+    const query = (searchInputEl.value || '').trim();
     const searchResultsDiv = document.getElementById('searchResults');
-    if (query.length < 1 && query !== "") { searchResultsDiv.innerHTML = ''; return; } 
-    
+    if (query.length === 0) {
+        searchResultsDiv.innerHTML = '';
+        searchResultsDiv.classList.add('d-none');
+        return; // Jangan lakukan fetch jika kosong
+    }
+    // Jika ada input, pastikan div hasil terlihat
+    searchResultsDiv.classList.remove('d-none');
     fetch(`/sales/api/cari_barang?q=${encodeURIComponent(query)}&limit=5`)
     .then(response => response.json())
     .then(data => {

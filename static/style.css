@@ -62,13 +62,29 @@ body {
     transition: var(--transition);
     margin-bottom: 20px;
     position: relative; /* allow z-index control */
-    z-index: 1; /* base layer */
+    z-index: 100; /* base layer */
 }
 
 .card:hover {
     transform: translateY(-2px);
     box-shadow: 0 4px 20px rgba(0,0,0,0.15);
-    z-index: 1100; /* above other content so dropdown remains on top */
+    /*z-index: 1100;*/ /* above other content so dropdown remains on top */
+}
+
+.card-report {
+    border: none;
+    border-radius: var(--border-radius);
+    box-shadow: var(--box-shadow);
+    transition: var(--transition);
+    margin-bottom: 20px;
+    position: relative; /* allow z-index control */
+    z-index: 100; /* base layer */
+}
+
+.card-report:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+    z-index: 1100 !important; /* above other content so dropdown remains on top */
 }
 
 .card-header {
