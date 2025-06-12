@@ -27,14 +27,9 @@
                                 <select class="form-select" id="kategori" name="kategori" required>
                                     <option value="">Pilih Kategori</option>
                                     {% set current_kategori = barang.kategori if barang and not barang is mapping else (barang.get('kategori') if barang is mapping else '') %}
-                                    <option value="Alat Taman" {{ 'selected' if current_kategori == 'Alat Taman' else '' }}>Alat Taman</option>
-                                    <option value="Alat Semprot" {{ 'selected' if current_kategori == 'Alat Semprot' else '' }}>Alat Semprot</option>
-                                    <option value="Benih" {{ 'selected' if current_kategori == 'Benih' else '' }}>Benih</option>
-                                    <option value="Pupuk" {{ 'selected' if current_kategori == 'Pupuk' else '' }}>Pupuk</option>
-                                    <option value="Pestisida" {{ 'selected' if current_kategori == 'Pestisida' else '' }}>Pestisida</option>
-                                    <option value="Irigasi" {{ 'selected' if current_kategori == 'Irigasi' else '' }}>Irigasi</option>
-                                    <option value="Lainnya" {{ 'selected' if current_kategori == 'Lainnya' else '' }}>Lainnya</option>
-                                    <!-- Additional options will be added by JavaScript -->
+                                    {% for cat in kategori_list %}
+                                        <option value="{{ cat }}" {{ 'selected' if current_kategori == cat else '' }}>{{ cat }}</option>
+                                    {% endfor %}
                                 </select>
                                 <button class="btn btn-outline-secondary" type="button" id="openKategoriModalBtn">
                                     <i class="fas fa-cog"></i>
@@ -64,21 +59,13 @@
                             <label for="satuan" class="form-label">Satuan Barang *</label>
                             <div class="input-group">
                                 <select class="form-select" id="satuan" name="satuan" required>
-                                    {% set current_satuan = barang.satuan if barang and not barang is mapping else (barang.get('satuan') if barang is mapping else 'Pcs') %}
-                                    <option value="Pcs" {{ 'selected' if current_satuan == 'Pcs' else '' }}>Pcs (Pieces)</option>
-                                    <option value="Kg" {{ 'selected' if current_satuan == 'Kg' else '' }}>Kg (Kilogram)</option>
-                                    <option value="Gr" {{ 'selected' if current_satuan == 'Gr' else '' }}>Gr (Gram)</option>
-                                    <option value="L" {{ 'selected' if current_satuan == 'L' else '' }}>L (Liter)</option>
-                                    <option value="mL" {{ 'selected' if current_satuan == 'mL' else '' }}>mL (Mililiter)</option>
-                                    <option value="Pack" {{ 'selected' if current_satuan == 'Pack' else '' }}>Pack</option>
-                                    <option value="Box" {{ 'selected' if current_satuan == 'Box' else '' }}>Box</option>
-                                    <option value="Roll" {{ 'selected' if current_satuan == 'Roll' else '' }}>Roll</option>
-                                    <option value="Unit" {{ 'selected' if current_satuan == 'Unit' else '' }}>Unit</option>
-                                    <option value="Set" {{ 'selected' if current_satuan == 'Set' else '' }}>Set</option>
-                                    <option value="Lusin" {{ 'selected' if current_satuan == 'Lusin' else '' }}>Lusin</option>
-                                    <option value="Meter" {{ 'selected' if current_satuan == 'Meter' else '' }}>Meter</option>
-                                    <option value="Sak" {{ 'selected' if current_satuan == 'Sak' else '' }}>Sak</option>
-                                    <!-- Additional options will be added by JavaScript -->
+                                    {% set current_satuan = barang.satuan if barang and not barang is mapping else (barang.get('satuan') if barang is mapping else '') %}
+                                    {% for sat in satuan_list %}
+                                        <option value="{{ sat }}" {{ 'selected' if current_satuan == sat else '' }}>{{ sat }}</option>
+                                    {% endfor %}
+                                    {% if current_satuan and current_satuan not in satuan_list %}
+                                        <option value="{{ current_satuan }}" selected>{{ current_satuan }}</option>
+                                    {% endif %}
                                 </select>
                                 <button class="btn btn-outline-secondary" type="button" id="openSatuanModalBtn">
                                     <i class="fas fa-cog"></i>
@@ -299,40 +286,19 @@
   </div>
 </div>
 
-{% endblock %}
-
-{% block scripts %}
 <script>
-document.getElementById('gambar').addEventListener('change', function(event) {
-    const file = event.target.files[0];
-    if (file) {
-        const reader = new FileReader();
-        let oldPreview = document.getElementById('imagePreview');
-        if (oldPreview) {
-            oldPreview.remove();
-        }
-        const img = document.createElement('img');
-        img.id = 'imagePreview';
-        img.className = 'img-thumbnail preview-thumb';
-        img.style.maxHeight = '100px';
-        img.style.marginTop = '10px';
-        img.style.cursor = 'pointer';
-        reader.onload = function(e) {
-            img.src = e.target.result;
-            img.setAttribute('data-full', e.target.result);
-        }
-        reader.readAsDataURL(file);
-        event.target.insertAdjacentElement('afterend', img);
-        attachPreviewListener(img);
+document.addEventListener('DOMContentLoaded', function() {
+    const kategoriSelect = document.getElementById('kategori');
+    if (kategoriSelect && kategoriSelect.dataset.current) {
+        kategoriSelect.value = kategoriSelect.dataset.current;
+    }
+    const satuanSelect = document.getElementById('satuan');
+    if (satuanSelect && satuanSelect.dataset.current) {
+        satuanSelect.value = satuanSelect.dataset.current;
     }
 });
-
-// Functions for generating kode barang
-let shouldGenerateKodeBarang = false;
-
-// Set this variable based on server-side conditions
-// Using script tag to properly isolate Jinja code
 </script>
+
 {% if action == 'Tambah' and not (barang and (barang.kode_barang if not barang is mapping else barang.get('kode_barang'))) %}
 <script>
     shouldGenerateKodeBarang = true;

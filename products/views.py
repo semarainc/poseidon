@@ -33,6 +33,8 @@ def barang():
 @login_required
 def tambah_barang():
     supplier_list = Supplier.query.order_by(Supplier.nama).all()
+    kategori_list = [k.nama for k in Kategori.query.order_by(Kategori.nama).all()]
+    satuan_list   = [s.nama for s in Satuan.query.order_by(Satuan.nama).all()]
     if request.method == 'POST':
         kode_barang = request.form['kode_barang']
         nama_barang = request.form['nama_barang']
@@ -52,7 +54,7 @@ def tambah_barang():
                 tanggal_kadaluarsa_obj = datetime.strptime(tanggal_kadaluarsa_str, '%Y-%m-%d').date()
             except ValueError:
                 flash('Format tanggal kadaluarsa tidak valid. Gunakan YYYY-MM-DD.', 'error')
-                return render_template('barang_form.html', action='Tambah', barang=request.form, supplier_list=supplier_list)
+                return render_template('barang_form.html', action='Tambah', barang=request.form, supplier_list=supplier_list, kategori_list=kategori_list, satuan_list=satuan_list)
 
         gambar_filename = None
         if 'gambar' in request.files:
@@ -65,12 +67,12 @@ def tambah_barang():
                 gambar_filename = filename
             elif file and file.filename != '':
                 flash('Format file gambar tidak diizinkan! (Hanya PNG, JPG, JPEG, GIF)', 'error')
-                return render_template('barang_form.html', action='Tambah', barang=request.form, supplier_list=supplier_list)
+                return render_template('barang_form.html', action='Tambah', barang=request.form, supplier_list=supplier_list, kategori_list=kategori_list, satuan_list=satuan_list)
 
         existing = Barang.query.filter_by(kode_barang=kode_barang).first()
         if existing:
             flash('Kode barang sudah ada!', 'error')
-            return render_template('barang_form.html', action='Tambah', barang=request.form, supplier_list=supplier_list)
+            return render_template('barang_form.html', action='Tambah', barang=request.form, supplier_list=supplier_list, kategori_list=kategori_list, satuan_list=satuan_list)
         
         new_barang = Barang(
             kode_barang=kode_barang,
@@ -97,14 +99,16 @@ def tambah_barang():
                  os.remove(os.path.join(current_app.config['UPLOAD_FOLDER'], gambar_filename))
             flash(f'Gagal menambahkan barang: {str(e)}', 'error')
             current_app.logger.error(f"Error tambah barang: {e}")
-            return render_template('barang_form.html', action='Tambah', barang=request.form, supplier_list=supplier_list)
+            return render_template('barang_form.html', action='Tambah', barang=request.form, supplier_list=supplier_list, kategori_list=kategori_list, satuan_list=satuan_list)
     
-    return render_template('barang_form.html', action='Tambah', barang=None, supplier_list=supplier_list)
+    return render_template('barang_form.html', action='Tambah', barang=None, supplier_list=supplier_list, kategori_list=kategori_list, satuan_list=satuan_list)
 
 @products_blueprint.route('/edit/<int:id>', methods=['GET', 'POST'], strict_slashes=False)
 @login_required
 def edit_barang(id):
     supplier_list = Supplier.query.order_by(Supplier.nama).all()
+    kategori_list = [k.nama for k in Kategori.query.order_by(Kategori.nama).all()]
+    satuan_list   = [s.nama for s in Satuan.query.order_by(Satuan.nama).all()]
     barang_item = Barang.query.get_or_404(id)
     if request.method == 'POST':
         new_kode_barang = request.form['kode_barang']
@@ -112,7 +116,7 @@ def edit_barang(id):
             existing = Barang.query.filter(Barang.id != id, Barang.kode_barang == new_kode_barang).first()
             if existing:
                 flash('Kode barang sudah digunakan oleh barang lain!', 'error')
-                return render_template('barang_form.html', action='Edit', barang=barang_item, supplier_list=supplier_list)
+                return render_template('barang_form.html', action='Edit', barang=barang_item, supplier_list=supplier_list, kategori_list=kategori_list, satuan_list=satuan_list)
 
         tanggal_kadaluarsa_str = request.form.get('tanggal_kadaluarsa')
         tanggal_kadaluarsa_obj = None 
@@ -121,7 +125,7 @@ def edit_barang(id):
                 tanggal_kadaluarsa_obj = datetime.strptime(tanggal_kadaluarsa_str, '%Y-%m-%d').date()
             except ValueError:
                 flash('Format tanggal kadaluarsa tidak valid.', 'error')
-                return render_template('barang_form.html', action='Edit', barang=barang_item, supplier_list=supplier_list)
+                return render_template('barang_form.html', action='Edit', barang=barang_item, supplier_list=supplier_list, kategori_list=kategori_list, satuan_list=satuan_list)
         
         gambar_filename = barang_item.gambar
         if 'gambar' in request.files:
@@ -139,7 +143,7 @@ def edit_barang(id):
                 gambar_filename = filename
             elif file and file.filename != '': 
                 flash('Format file gambar tidak diizinkan! (Hanya PNG, JPG, JPEG, GIF)', 'error')
-                return render_template('barang_form.html', action='Edit', barang=barang_item, supplier_list=supplier_list)
+                return render_template('barang_form.html', action='Edit', barang=barang_item, supplier_list=supplier_list, kategori_list=kategori_list, satuan_list=satuan_list)
 
         supplier_id = request.form.get('supplier_id') or None
         barang_item.kode_barang = new_kode_barang
@@ -164,8 +168,8 @@ def edit_barang(id):
             traceback.print_exc()
             flash(f'Gagal memperbarui barang: {str(e)}', 'error')
             current_app.logger.error(f"Error edit barang: {e}")
-            return render_template('barang_form.html', action='Edit', barang=barang_item, supplier_list=supplier_list)
-    return render_template('barang_form.html', action='Edit', barang=barang_item, supplier_list=supplier_list)
+            return render_template('barang_form.html', action='Edit', barang=barang_item, supplier_list=supplier_list, kategori_list=kategori_list, satuan_list=satuan_list)
+    return render_template('barang_form.html', action='Edit', barang=barang_item, supplier_list=supplier_list, kategori_list=kategori_list, satuan_list=satuan_list)
 
 @products_blueprint.route('/hapus/<int:id>', strict_slashes=False)
 @login_required
