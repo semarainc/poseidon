@@ -16,13 +16,28 @@ customer_blueprint = Blueprint('customer', __name__, template_folder='templates'
 @login_required
 def pelanggan():
     search = request.args.get('search', '')
+    page = request.args.get('page', 1, type=int)
+    per_page = request.args.get('per_page', 25, type=int)
+    allowed_sizes = [10, 25, 50, 100]
+    if per_page not in allowed_sizes:
+        per_page = 25
+
     query = Pelanggan.query
     if search:
         query = query.filter(
             or_(Pelanggan.nama.contains(search), Pelanggan.no_hp.contains(search))
         )
-    pelanggan_list = query.order_by(Pelanggan.nama).all()
-    return render_template('pelanggan.html', pelanggan_list=pelanggan_list, search=search)
+        
+    total_count = query.count()
+    pagination = query.order_by(Pelanggan.nama).paginate(page=page, per_page=per_page, error_out=False)
+    pelanggan_list = pagination.items
+    
+    return render_template('pelanggan.html', 
+                          pelanggan_list=pelanggan_list, 
+                          search=search, 
+                          pagination=pagination,
+                          per_page=per_page,
+                          total_count=total_count)
 
 @customer_blueprint.route('/tambah', methods=['GET', 'POST'], strict_slashes=False)
 @login_required

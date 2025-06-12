@@ -21,13 +21,22 @@ def allowed_file(filename):
 @login_required
 def barang():
     search = request.args.get('search', '')
+    page = request.args.get('page', 1, type=int)
+    per_page = request.args.get('per_page', 25, type=int)
+    allowed_sizes = [10, 25, 50, 100]
+    if per_page not in allowed_sizes:
+        per_page = 25
+
     query = Barang.query
     if search:
         query = query.filter(
             or_(Barang.nama_barang.contains(search), Barang.kode_barang.contains(search))
         )
-    barang_list = query.order_by(Barang.nama_barang).all()
-    return render_template('barang.html', barang_list=barang_list, search=search)
+
+    total_count = query.count()
+    pagination = query.order_by(Barang.nama_barang).paginate(page=page, per_page=per_page, error_out=False)
+    barang_list = pagination.items
+    return render_template('barang.html', barang_list=barang_list, pagination=pagination, search=search, per_page=per_page, total_count=total_count)
 
 @products_blueprint.route('/tambah', methods=['GET', 'POST'], strict_slashes=False)
 @login_required

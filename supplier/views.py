@@ -10,11 +10,26 @@ supplier_blueprint = Blueprint('supplier', __name__, template_folder='templates'
 @login_required
 def supplier_list():
     search = request.args.get('search', '')
+    page = request.args.get('page', 1, type=int)
+    per_page = request.args.get('per_page', 25, type=int)
+    allowed_sizes = [10, 25, 50, 100]
+    if per_page not in allowed_sizes:
+        per_page = 25
+        
     query = Supplier.query
     if search:
         query = query.filter(Supplier.nama.contains(search))
-    suppliers = query.order_by(Supplier.nama).all()
-    return render_template('supplier.html', suppliers=suppliers, search=search)
+    
+    total_count = query.count()
+    pagination = query.order_by(Supplier.nama).paginate(page=page, per_page=per_page, error_out=False)
+    suppliers = pagination.items
+    
+    return render_template('supplier.html', 
+                          suppliers=suppliers, 
+                          search=search, 
+                          pagination=pagination,
+                          per_page=per_page,
+                          total_count=total_count)
 
 @supplier_blueprint.route('/tambah', methods=['GET', 'POST'], strict_slashes=False)
 @login_required

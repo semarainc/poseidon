@@ -307,7 +307,16 @@ def laporan_penjualan():
             flash('Format tanggal akhir tidak valid.', 'error')
             tanggal_akhir = None 
 
-    transaksi_list = query.all()
+    # Pagination
+    page = request.args.get('page', 1, type=int)
+    per_page = request.args.get('per_page', 25, type=int)
+    allowed_sizes = [10, 25, 50, 100]
+    if per_page not in allowed_sizes:
+        per_page = 25
+    
+    pagination = query.paginate(page=page, per_page=per_page, error_out=False)
+    transaksi_list = pagination.items
+    total_count = pagination.total
     total_penjualan_periode = sum(t.total_harga or 0.0 for t in transaksi_list)
     
     penjualan_per_hari = {}
@@ -331,10 +340,14 @@ def laporan_penjualan():
     
     return render_template('laporan_penjualan.html', 
                            transaksi_list=transaksi_list,
+                           pagination=pagination,
                            total_penjualan_periode=total_penjualan_periode,
                            penjualan_per_hari=penjualan_per_hari,
                            filter_tanggal_mulai=tanggal_mulai_str if tanggal_mulai else '', 
-                           filter_tanggal_akhir=tanggal_akhir_str if tanggal_akhir else '')
+                           filter_tanggal_akhir=tanggal_akhir_str if tanggal_akhir else '',
+                           per_page=per_page,
+                           page=page,
+                           total_count=total_count)
 
 @sales_blueprint.route('/laporan_penjualan/download_csv', methods=['GET'], strict_slashes=False)
 @login_required
