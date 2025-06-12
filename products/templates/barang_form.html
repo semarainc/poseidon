@@ -1,0 +1,1184 @@
+{% extends "base.html" %}
+
+{% block title %}{{ action }} Barang - POSEIDON{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-8 offset-md-2">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-{{ 'plus' if action == 'Tambah' else 'edit' }} me-2"></i>
+                    {{ action }} Barang
+                </h5>
+            </div>
+            <div class="card-body">
+                <form method="POST" enctype="multipart/form-data">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="kode_barang" class="form-label">Kode Barang *</label>
+                            <input type="text" class="form-control" id="kode_barang" name="kode_barang" 
+                                   value="{{ barang.kode_barang if barang and not barang is mapping else (barang.get('kode_barang') if barang is mapping else '') }}" required>
+                            <div class="form-text">Gunakan kode unik untuk setiap barang</div>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="kategori" class="form-label">Kategori *</label>
+                            <div class="input-group">
+                                <select class="form-select" id="kategori" name="kategori" required>
+                                    <option value="">Pilih Kategori</option>
+                                    {% set current_kategori = barang.kategori if barang and not barang is mapping else (barang.get('kategori') if barang is mapping else '') %}
+                                    <option value="Alat Taman" {{ 'selected' if current_kategori == 'Alat Taman' else '' }}>Alat Taman</option>
+                                    <option value="Alat Semprot" {{ 'selected' if current_kategori == 'Alat Semprot' else '' }}>Alat Semprot</option>
+                                    <option value="Benih" {{ 'selected' if current_kategori == 'Benih' else '' }}>Benih</option>
+                                    <option value="Pupuk" {{ 'selected' if current_kategori == 'Pupuk' else '' }}>Pupuk</option>
+                                    <option value="Pestisida" {{ 'selected' if current_kategori == 'Pestisida' else '' }}>Pestisida</option>
+                                    <option value="Irigasi" {{ 'selected' if current_kategori == 'Irigasi' else '' }}>Irigasi</option>
+                                    <option value="Lainnya" {{ 'selected' if current_kategori == 'Lainnya' else '' }}>Lainnya</option>
+                                    <!-- Additional options will be added by JavaScript -->
+                                </select>
+                                <button class="btn btn-outline-secondary" type="button" id="openKategoriModalBtn">
+                                    <i class="fas fa-cog"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="nama_barang" class="form-label">Nama Barang *</label>
+                        <input type="text" class="form-control" id="nama_barang" name="nama_barang" 
+                               value="{{ barang.nama_barang if barang and not barang is mapping else (barang.get('nama_barang') if barang is mapping else '') }}" required>
+                    </div>
+                    
+                    <!-- Supplier & Satuan -->
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="supplier_id" class="form-label">Supplier</label>
+                            <select class="form-select" id="supplier_id" name="supplier_id">
+                                <option value="">Pilih Supplier</option>
+                                {% for sup in supplier_list %}
+                                    <option value="{{ sup.id }}" {{ 'selected' if (barang.supplier_id if barang and not barang is mapping else (barang.get('supplier_id') if barang is mapping else None)) == sup.id else '' }}>{{ sup.nama }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="satuan" class="form-label">Satuan Barang *</label>
+                            <div class="input-group">
+                                <select class="form-select" id="satuan" name="satuan" required>
+                                    {% set current_satuan = barang.satuan if barang and not barang is mapping else (barang.get('satuan') if barang is mapping else 'Pcs') %}
+                                    <option value="Pcs" {{ 'selected' if current_satuan == 'Pcs' else '' }}>Pcs (Pieces)</option>
+                                    <option value="Kg" {{ 'selected' if current_satuan == 'Kg' else '' }}>Kg (Kilogram)</option>
+                                    <option value="Gr" {{ 'selected' if current_satuan == 'Gr' else '' }}>Gr (Gram)</option>
+                                    <option value="L" {{ 'selected' if current_satuan == 'L' else '' }}>L (Liter)</option>
+                                    <option value="mL" {{ 'selected' if current_satuan == 'mL' else '' }}>mL (Mililiter)</option>
+                                    <option value="Pack" {{ 'selected' if current_satuan == 'Pack' else '' }}>Pack</option>
+                                    <option value="Box" {{ 'selected' if current_satuan == 'Box' else '' }}>Box</option>
+                                    <option value="Roll" {{ 'selected' if current_satuan == 'Roll' else '' }}>Roll</option>
+                                    <option value="Unit" {{ 'selected' if current_satuan == 'Unit' else '' }}>Unit</option>
+                                    <option value="Set" {{ 'selected' if current_satuan == 'Set' else '' }}>Set</option>
+                                    <option value="Lusin" {{ 'selected' if current_satuan == 'Lusin' else '' }}>Lusin</option>
+                                    <option value="Meter" {{ 'selected' if current_satuan == 'Meter' else '' }}>Meter</option>
+                                    <option value="Sak" {{ 'selected' if current_satuan == 'Sak' else '' }}>Sak</option>
+                                    <!-- Additional options will be added by JavaScript -->
+                                </select>
+                                <button class="btn btn-outline-secondary" type="button" id="openSatuanModalBtn">
+                                    <i class="fas fa-cog"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="stok" class="form-label">Stok *</label>
+                            <input type="number" class="form-control" id="stok" name="stok" min="0"
+                                   value="{{ barang.stok if barang and not barang is mapping else (barang.get('stok', '0') if barang is mapping else '0') }}" required>
+                        </div>
+                    </div>
+                    
+                    <!-- Harga-harga -->
+                    <div class="row">
+                        <div class="col-md-4 mb-3">
+                            <label for="harga_pokok" class="form-label">Harga Pokok/Modal (Rp)</label>
+                            <input type="number" class="form-control" id="harga_pokok" name="harga_pokok" min="0" step="any"
+                                   value="{{ barang.harga_pokok if barang and not barang is mapping else (barang.get('harga_pokok', '0') if barang is mapping else '0') }}" 
+                                   onchange="hitungKeuntungan()">
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label for="harga_jual" class="form-label">Harga Jual Eceran (Rp) *</label>
+                            <input type="number" class="form-control" id="harga_jual" name="harga_jual" min="0" step="any"
+                                   value="{{ barang.harga_jual if barang and not barang is mapping else (barang.get('harga_jual', '0') if barang is mapping else '0') }}" 
+                                   onchange="hitungKeuntungan()" required>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label for="harga_grosir" class="form-label">Harga Jual Grosir (Rp)</label>
+                            <input type="number" class="form-control" id="harga_grosir" name="harga_grosir" min="0" step="any"
+                                   value="{{ barang.harga_grosir if barang and not barang is mapping else (barang.get('harga_grosir', '0') if barang is mapping else '0') }}"
+                                   onchange="hitungKeuntunganGrosir()">
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-4 mb-3">
+                            <div class="alert alert-info" id="info_persentase_keuntungan">
+                                Keuntungan Eceran: <span id="persentase_keuntungan">0</span>%
+                            </div>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <div class="alert alert-info" id="info_persentase_keuntungan_grosir">
+                                Keuntungan Grosir: <span id="persentase_keuntungan_grosir">0</span>%
+                            </div>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label for="batas_minimal_grosir" class="form-label">Minimal Qty untuk Harga Grosir</label>
+                            <input type="number" class="form-control" id="batas_minimal_grosir" name="batas_minimal_grosir" min="1" 
+                                   value="{{ barang.batas_minimal_grosir if barang and not barang is mapping else (barang.get('batas_minimal_grosir', '10') if barang is mapping else '10') }}">
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="gambar" class="form-label">Gambar Barang</label>
+                        <input type="file" class="form-control" id="gambar" name="gambar" accept="image/*">
+                        {% if barang and barang.gambar and not barang is mapping %}
+                            <div class="mt-2">
+                                <small>Gambar saat ini:</small><br>
+                                <img src="{{ url_for('static', filename='images/products/' + barang.gambar) }}" alt="{{ barang.nama_barang }}" 
+                                     class="img-thumbnail preview-thumb" data-full="{{ url_for('static', filename='images/products/' + barang.gambar) }}"
+                                     style="max-height: 100px; border-radius: 5px; cursor:pointer;">
+                            </div>
+                        {% endif %}
+                        <div class="form-text">Opsional. Format yang diizinkan: PNG, JPG, JPEG, GIF.</div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="tanggal_kadaluarsa" class="form-label">Tanggal Kadaluarsa</label>
+                        <input type="date" class="form-control" id="tanggal_kadaluarsa" name="tanggal_kadaluarsa"
+                               value="{{ (barang.tanggal_kadaluarsa.strftime('%Y-%m-%d') if barang.tanggal_kadaluarsa else '') if barang and not barang is mapping else (barang.get('tanggal_kadaluarsa', '') if barang is mapping else '') }}">
+                        <div class="form-text">Opsional. Jika barang memiliki masa kadaluarsa.</div>
+                    </div>
+                    
+                    <div class="d-flex justify-content-between mt-4">
+                        <a href="{{ url_for('products.barang') }}" class="btn btn-secondary">
+                            <i class="fas fa-arrow-left me-2"></i>Kembali
+                        </a>
+                        <button type="submit" class="btn btn-success">
+                            <i class="fas fa-save me-2"></i>{{ action }} Barang
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Toast Container -->
+<div class="position-fixed bottom-0 end-0 p-3" style="z-index: 11">
+    <div id="liveToast" class="toast" role="alert" aria-live="assertive" aria-atomic="true">
+        <div class="toast-header">
+            <strong class="me-auto" id="toastTitle">Notifikasi</strong>
+            <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
+        </div>
+        <div class="toast-body" id="toastMessage"></div>
+    </div>
+</div>
+
+<!-- Modal untuk Manajemen Satuan -->
+<div class="modal fade" id="modalManageSatuan" tabindex="-1" aria-labelledby="modalManageSatuanLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalManageSatuanLabel">Manajemen Satuan Barang</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label for="newSatuan" class="form-label">Tambah Satuan Baru</label>
+                    <div class="input-group">
+                        <input type="text" class="form-control" id="newSatuan" placeholder="Nama Satuan">
+                        <input type="text" class="form-control" id="newSatuanDesc" placeholder="Deskripsi (opsional)">
+                        <button class="btn btn-success" type="button" onclick="addItem('satuan')">
+                            <i class="fas fa-plus"></i> Tambah
+                        </button>
+                    </div>
+                </div>
+                <div class="mt-4">
+                    <h6>Daftar Satuan</h6>
+                    <div class="list-group" id="satuanList">
+                        <!-- Daftar satuan akan ditampilkan di sini -->
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Tutup</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal untuk Manajemen Kategori -->
+<div class="modal fade" id="modalManageKategori" tabindex="-1" aria-labelledby="modalManageKategoriLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalManageKategoriLabel">Kelola Kategori Barang</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row mb-3">
+                    <div class="col-md-8">
+                        <div class="input-group">
+                            <input type="text" class="form-control" id="newKategoriValue" placeholder="Tambah Kategori Baru...">
+                            <button class="btn btn-primary" type="button" onclick="addItem('kategori')">Tambah</button>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="table-responsive">
+                    <table class="table table-bordered table-striped">
+                        <thead class="table-dark">
+                            <tr>
+                                <th width="70%">Nama Kategori</th>
+                                <th width="30%">Aksi</th>
+                            </tr>
+                        </thead>
+                        <tbody id="kategoriTableBody">
+                            <!-- Items will be populated by JavaScript -->
+                            <tr>
+                                <td colspan="2" class="text-center">
+                                    <div class="spinner-border text-primary" role="status">
+                                        <span class="visually-hidden">Loading...</span>
+                                    </div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Tutup</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal untuk Edit Item -->
+<div class="modal fade" id="modalEditItem" tabindex="-1" aria-labelledby="modalEditItemLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalEditItemLabel">Edit Item</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="editItemType">
+                <input type="hidden" id="editItemIndex">
+                <div class="mb-3">
+                    <label for="editItemValue" class="form-label">Nilai</label>
+                    <input type="text" class="form-control" id="editItemValue">
+                </div>
+                <div class="mb-3" id="editItemDescContainer">
+                    <label for="editItemDesc" class="form-label">Deskripsi</label>
+                    <input type="text" class="form-control" id="editItemDesc">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+                <button type="button" class="btn btn-primary" onclick="editItem()">Simpan</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Preview Gambar -->
+<div class="modal fade" id="imagePreviewModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-lg">
+    <div class="modal-content">
+      <div class="modal-body p-0">
+        <img id="previewImageModalImg" src="#" alt="Preview" class="img-fluid w-100">
+      </div>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.getElementById('gambar').addEventListener('change', function(event) {
+    const file = event.target.files[0];
+    if (file) {
+        const reader = new FileReader();
+        let oldPreview = document.getElementById('imagePreview');
+        if (oldPreview) {
+            oldPreview.remove();
+        }
+        const img = document.createElement('img');
+        img.id = 'imagePreview';
+        img.className = 'img-thumbnail preview-thumb';
+        img.style.maxHeight = '100px';
+        img.style.marginTop = '10px';
+        img.style.cursor = 'pointer';
+        reader.onload = function(e) {
+            img.src = e.target.result;
+            img.setAttribute('data-full', e.target.result);
+        }
+        reader.readAsDataURL(file);
+        event.target.insertAdjacentElement('afterend', img);
+        attachPreviewListener(img);
+    }
+});
+
+// Functions for generating kode barang
+let shouldGenerateKodeBarang = false;
+
+// Set this variable based on server-side conditions
+// Using script tag to properly isolate Jinja code
+</script>
+{% if action == 'Tambah' and not (barang and (barang.kode_barang if not barang is mapping else barang.get('kode_barang'))) %}
+<script>
+    shouldGenerateKodeBarang = true;
+</script>
+{% endif %}
+<script>
+
+function generateKodeBarang() {
+    const kategoriVal = document.getElementById('kategori').value;
+    const namaBarangVal = document.getElementById('nama_barang').value;
+    
+    if (kategoriVal && namaBarangVal) {
+        let prefix = '';
+        switch(kategoriVal) {
+            case 'Alat Taman': prefix = 'ALT'; break;
+            case 'Alat Semprot': prefix = 'ALS'; break;
+            case 'Benih': prefix = 'BNH'; break;
+            case 'Pupuk': prefix = 'PPK'; break;
+            case 'Pestisida': prefix = 'PST'; break;
+            case 'Irigasi': prefix = 'IRG'; break;
+            default: prefix = 'LYN'; break;
+        }
+        const namaShort = namaBarangVal.substring(0, 3).toUpperCase().replace(/[^A-Z0-9]/g, '');
+        const randomNum = Math.floor(Math.random() * 100).toString().padStart(2, '0');
+        const kodeBarangVal = prefix + namaShort + randomNum;
+        document.getElementById('kode_barang').value = kodeBarangVal;
+    }
+}
+
+
+
+// Fungsi untuk menghitung persentase keuntungan
+function hitungKeuntungan() {
+    const hargaPokok = parseFloat(document.getElementById('harga_pokok').value) || 0;
+    const hargaJual = parseFloat(document.getElementById('harga_jual').value) || 0;
+    
+    if (hargaPokok > 0 && hargaJual > 0) {
+        const persentaseKeuntungan = ((hargaJual - hargaPokok) / hargaPokok) * 100;
+        document.getElementById('persentase_keuntungan').textContent = persentaseKeuntungan.toFixed(2);
+        
+        // Ubah warna berdasarkan persentase
+        const infoPersentase = document.getElementById('info_persentase_keuntungan');
+        if (persentaseKeuntungan < 10) {
+            infoPersentase.className = 'alert alert-danger';
+        } else if (persentaseKeuntungan < 20) {
+            infoPersentase.className = 'alert alert-warning';
+        } else {
+            infoPersentase.className = 'alert alert-success';
+        }
+    } else {
+        document.getElementById('persentase_keuntungan').textContent = '0';
+        document.getElementById('info_persentase_keuntungan').className = 'alert alert-info';
+    }
+}
+
+// Fungsi untuk menghitung persentase keuntungan grosir
+function hitungKeuntunganGrosir() {
+    const hargaPokok = parseFloat(document.getElementById('harga_pokok').value) || 0;
+    const hargaGrosir = parseFloat(document.getElementById('harga_grosir').value) || 0;
+    
+    if (hargaPokok > 0 && hargaGrosir > 0) {
+        const persentaseKeuntungan = ((hargaGrosir - hargaPokok) / hargaPokok) * 100;
+        document.getElementById('persentase_keuntungan_grosir').textContent = persentaseKeuntungan.toFixed(2);
+        
+        // Ubah warna berdasarkan persentase
+        const infoPersentase = document.getElementById('info_persentase_keuntungan_grosir');
+        if (persentaseKeuntungan < 10) {
+            infoPersentase.className = 'alert alert-danger';
+        } else if (persentaseKeuntungan < 20) {
+            infoPersentase.className = 'alert alert-warning';
+        } else {
+            infoPersentase.className = 'alert alert-success';
+        }
+    } else {
+        document.getElementById('persentase_keuntungan_grosir').textContent = '0';
+        document.getElementById('info_persentase_keuntungan_grosir').className = 'alert alert-info';
+    }
+}
+
+// Toast notification functions
+function showToast(title, message, type = 'success') {
+    const toast = document.getElementById('liveToast');
+    const toastTitle = document.getElementById('toastTitle');
+    const toastMessage = document.getElementById('toastMessage');
+    
+    // Set toast content
+    toastTitle.textContent = title;
+    toastMessage.textContent = message;
+    
+    // Set toast type/color
+    toast.classList.remove('bg-success', 'bg-danger', 'bg-warning', 'bg-info', 'text-white');
+    if (type === 'success') {
+        toast.classList.add('bg-success', 'text-white');
+    } else if (type === 'error') {
+        toast.classList.add('bg-danger', 'text-white');
+    } else if (type === 'warning') {
+        toast.classList.add('bg-warning');
+    } else if (type === 'info') {
+        toast.classList.add('bg-info');
+    }
+    
+    // Show the toast
+    const bsToast = new bootstrap.Toast(toast);
+    bsToast.show();
+}
+
+// Manajemen Satuan Barang
+let satuanItems = [
+    { value: 'Pcs', desc: 'Pieces' },
+    { value: 'Kg', desc: 'Kilogram' },
+    { value: 'Gr', desc: 'Gram' },
+    { value: 'L', desc: 'Liter' },
+    { value: 'mL', desc: 'Mililiter' },
+    { value: 'Pack', desc: 'Pack' },
+    { value: 'Box', desc: 'Box' },
+    { value: 'Roll', desc: 'Roll' },
+    { value: 'Unit', desc: 'Unit' },
+    { value: 'Set', desc: 'Set' },
+    { value: 'Lusin', desc: 'Lusin' },
+    { value: 'Meter', desc: 'Meter' },
+    { value: 'Sak', desc: 'Sak' }
+];
+
+// Manajemen Kategori Barang
+let kategoriItems = [
+    { value: 'Alat Taman' },
+    { value: 'Alat Semprot' },
+    { value: 'Benih' },
+    { value: 'Pupuk' },
+    { value: 'Pestisida' },
+    { value: 'Irigasi' },
+    { value: 'Lainnya' }
+];
+
+// Load data from database API
+function loadCustomItems() {
+    // Fetch kategori from API
+    fetch('/products/api/kategori')
+        .then(response => response.json())
+        .then(data => {
+            // Update kategoriItems with data from the server
+            kategoriItems = data.kategori.map(item => {
+                return {
+                    id: item.id,
+                    value: item.nama,
+                    is_default: item.is_default
+                };
+            });
+            updateKategoriSelect();
+            loadKategoriTable();
+            // Clear input
+        })
+        .catch(error => {
+            console.error('Error loading categories:', error);
+            showToast('Error', 'Gagal memuat daftar kategori', 'error');
+        });
+
+    // Fetch satuan from API
+    fetch('/products/api/satuan')
+        .then(response => response.json())
+        .then(data => {
+            // Update satuanItems with data from the server
+            satuanItems = data.satuan.map(item => {
+                return {
+                    id: item.id,
+                    value: item.nama,
+                    desc: item.deskripsi || '',
+                    is_default: item.is_default
+                };
+            });
+            updateSatuanSelect();
+            loadSatuanList();
+        })
+        .catch(error => {
+            console.error('Error loading units:', error);
+            showToast('Error', 'Gagal memuat daftar satuan', 'error');
+        });
+}
+
+// Load data for kategori table in modal
+function loadKategoriTable() {
+    const tableBody = document.getElementById('kategoriTableBody');
+    tableBody.innerHTML = '';
+    
+    kategoriItems.forEach(item => {
+        const row = document.createElement('tr');
+        
+        const nameCell = document.createElement('td');
+        nameCell.textContent = item.value;
+        
+        const actionsCell = document.createElement('td');
+        const editBtn = document.createElement('button');
+        editBtn.className = 'btn btn-sm btn-warning me-1';
+        editBtn.innerHTML = '<i class="fas fa-edit"></i> Edit';
+        editBtn.disabled = item.is_default;
+        if (!item.is_default) {
+            editBtn.addEventListener('click', () => {
+                openEditKategoriModal(item.id, item.value);
+            });
+        }
+        
+        const deleteBtn = document.createElement('button');
+        deleteBtn.className = 'btn btn-sm btn-danger';
+        deleteBtn.innerHTML = '<i class="fas fa-trash"></i> Hapus';
+        deleteBtn.disabled = item.is_default;
+        if (!item.is_default) {
+            deleteBtn.addEventListener('click', () => {
+                deleteKategori(item.id);
+            });
+        }
+        
+        actionsCell.appendChild(editBtn);
+        actionsCell.appendChild(deleteBtn);
+        
+        row.appendChild(nameCell);
+        row.appendChild(actionsCell);
+        
+        tableBody.appendChild(row);
+    });
+}
+
+// Load data for satuan list in modal
+function loadSatuanList() {
+    const listElem = document.getElementById('satuanList');
+    listElem.innerHTML = '';
+    
+    satuanItems.forEach(item => {
+        const listItem = document.createElement('div');
+        listItem.className = 'list-group-item d-flex justify-content-between align-items-center';
+        
+        const infoDiv = document.createElement('div');
+        const nameElem = document.createElement('strong');
+        nameElem.textContent = item.value;
+        infoDiv.appendChild(nameElem);
+        
+        if (item.desc) {
+            const descElem = document.createElement('small');
+            descElem.className = 'text-muted d-block';
+            descElem.textContent = item.desc;
+            infoDiv.appendChild(descElem);
+        }
+        
+        const actionsDiv = document.createElement('div');
+        
+        const editBtn = document.createElement('button');
+        editBtn.className = 'btn btn-sm btn-warning me-1';
+        editBtn.innerHTML = '<i class="fas fa-edit"></i>';
+        editBtn.disabled = item.is_default;
+        if (!item.is_default) {
+            editBtn.addEventListener('click', () => {
+                openEditSatuanModal(item.id, item.value, item.desc);
+            });
+        }
+        
+        const deleteBtn = document.createElement('button');
+        deleteBtn.className = 'btn btn-sm btn-danger';
+        deleteBtn.innerHTML = '<i class="fas fa-trash"></i>';
+        deleteBtn.disabled = item.is_default;
+        if (!item.is_default) {
+            deleteBtn.addEventListener('click', () => {
+                deleteSatuan(item.id);
+            });
+        }
+        
+        actionsDiv.appendChild(editBtn);
+        actionsDiv.appendChild(deleteBtn);
+        
+        listItem.appendChild(infoDiv);
+        listItem.appendChild(actionsDiv);
+        
+        listElem.appendChild(listItem);
+    });
+}
+
+// Update dropdown for satuan
+function updateSatuanSelect() {
+    // Update dropdown
+    const selectElem = document.getElementById('satuan');
+    const currentValue = selectElem.value;
+    
+    // Clear all options
+    while (selectElem.options.length > 0) {
+        selectElem.remove(0);
+    }
+    
+    // Add all options
+    satuanItems.forEach(item => {
+        const option = document.createElement('option');
+        option.value = item.value;
+        option.textContent = item.value + (item.desc ? ` (${item.desc})` : '');
+        selectElem.appendChild(option);
+    });
+    
+    // Restore selected value if possible
+    if (currentValue && satuanItems.some(item => item.value === currentValue)) {
+        selectElem.value = currentValue;
+    } else if (satuanItems.length > 0) {
+        selectElem.value = satuanItems[0].value;
+    }
+}
+
+function updateKategoriSelect() {
+    // Update dropdown
+    const selectElem = document.getElementById('kategori');
+    const currentValue = selectElem.value;
+    
+    // Clear all options
+    while (selectElem.options.length > 0) {
+        selectElem.remove(0);
+    }
+    
+    // Add empty option
+    const emptyOption = document.createElement('option');
+    emptyOption.value = '';
+    emptyOption.textContent = 'Pilih Kategori';
+    selectElem.appendChild(emptyOption);
+    
+    // Add all options
+    kategoriItems.forEach(item => {
+        const option = document.createElement('option');
+        option.value = item.value;
+        option.textContent = item.value;
+        selectElem.appendChild(option);
+    });
+    
+    // Restore selected value if possible
+    if (currentValue && kategoriItems.some(item => item.value === currentValue)) {
+        selectElem.value = currentValue;
+    }
+}
+
+// API functions for kategori management
+function addItem(type) {
+    let value, deskripsi;
+    
+    if (type === 'kategori') {
+        const input = document.getElementById('newKategoriValue');
+        value = input.value.trim();
+        if (!value) {
+            showToast('Peringatan', 'Nama kategori tidak boleh kosong!', 'warning');
+            return;
+        }
+        
+        // Send API request to add kategori
+        fetch('/products/api/kategori', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ nama: value })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showToast('Sukses', data.message, 'success');
+                // Add to local list
+                kategoriItems.push({
+                    id: data.kategori.id,
+                    value: data.kategori.nama,
+                    is_default: data.kategori.is_default
+                });
+                // Update UI
+                updateKategoriSelect();
+                loadKategoriTable();
+                // Clear input
+                input.value = '';
+            } else {
+                showToast('Error', data.message, 'error');
+            }
+        })
+        .catch(error => {
+            console.error('Error adding kategori:', error);
+            showToast('Error', 'Gagal menambahkan kategori', 'error');
+        });
+    } else if (type === 'satuan') {
+        const nameInput = document.getElementById('newSatuan');
+        const descInput = document.getElementById('newSatuanDesc');
+        value = nameInput.value.trim();
+        deskripsi = descInput.value.trim();
+        
+        if (!value) {
+            showToast('Peringatan', 'Nama satuan tidak boleh kosong!', 'warning');
+            return;
+        }
+        
+        // Send API request to add satuan
+        fetch('/products/api/satuan', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ nama: value, deskripsi: deskripsi })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showToast('Sukses', data.message, 'success');
+                // Add to local list
+                satuanItems.push({
+                    id: data.satuan.id,
+                    value: data.satuan.nama,
+                    desc: data.satuan.deskripsi,
+                    is_default: data.satuan.is_default
+                });
+                // Update UI
+                updateSatuanSelect();
+                loadSatuanList();
+                // Clear inputs
+                nameInput.value = '';
+                descInput.value = '';
+            } else {
+                showToast('Error', data.message, 'error');
+            }
+        })
+        .catch(error => {
+            console.error('Error adding satuan:', error);
+            showToast('Error', 'Gagal menambahkan satuan', 'error');
+        });
+    }
+}
+
+// Open modal to edit kategori
+function openEditKategoriModal(id, value) {
+    document.getElementById('editItemType').value = 'kategori';
+    document.getElementById('editItemIndex').value = id;
+    document.getElementById('editItemValue').value = value;
+    document.getElementById('editItemDescContainer').style.display = 'none';
+    
+    const editModal = new bootstrap.Modal(document.getElementById('modalEditItem'));
+    editModal.show();
+}
+
+// Open modal to edit satuan
+function openEditSatuanModal(id, value, desc) {
+    document.getElementById('editItemType').value = 'satuan';
+    document.getElementById('editItemIndex').value = id;
+    document.getElementById('editItemValue').value = value;
+    document.getElementById('editItemDesc').value = desc || '';
+    document.getElementById('editItemDescContainer').style.display = 'block';
+    
+    const editModal = new bootstrap.Modal(document.getElementById('modalEditItem'));
+    editModal.show();
+}
+
+// Edit item
+function editItem() {
+    const type = document.getElementById('editItemType').value;
+    const id = document.getElementById('editItemIndex').value;
+    const newValue = document.getElementById('editItemValue').value.trim();
+    
+    if (!newValue) {
+        showToast('Peringatan', 'Nama tidak boleh kosong!', 'warning');
+        return;
+    }
+    
+    if (type === 'kategori') {
+        // Send API request to update kategori
+        fetch(`/products/api/kategori/${id}`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ nama: newValue })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showToast('Sukses', data.message, 'success');
+                // Update local list
+                const index = kategoriItems.findIndex(item => item.id === parseInt(id));
+                if (index !== -1) {
+                    kategoriItems[index].value = newValue;
+                }
+                // Update UI
+                updateKategoriSelect();
+                loadKategoriTable();
+                // Close modal
+                bootstrap.Modal.getInstance(document.getElementById('modalEditItem')).hide();
+            } else {
+                showToast('Error', data.message, 'error');
+            }
+        })
+        .catch(error => {
+            console.error('Error updating kategori:', error);
+            showToast('Error', 'Gagal mengupdate kategori', 'error');
+        });
+    } else if (type === 'satuan') {
+        const newDesc = document.getElementById('editItemDesc').value.trim();
+        
+        // Send API request to update satuan
+        fetch(`/products/api/satuan/${id}`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ nama: newValue, deskripsi: newDesc })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showToast('Sukses', data.message, 'success');
+                // Update local list
+                const index = satuanItems.findIndex(item => item.id === parseInt(id));
+                if (index !== -1) {
+                    satuanItems[index].value = newValue;
+                    satuanItems[index].desc = newDesc;
+                }
+                // Update UI
+                updateSatuanSelect();
+                loadSatuanList();
+                // Close modal
+                bootstrap.Modal.getInstance(document.getElementById('modalEditItem')).hide();
+            } else {
+                showToast('Error', data.message, 'error');
+            }
+        })
+        .catch(error => {
+            console.error('Error updating satuan:', error);
+            showToast('Error', 'Gagal mengupdate satuan', 'error');
+        });
+    }
+}
+
+// Delete item
+function deleteItem(type, id) {
+    if (!confirm('Apakah Anda yakin ingin menghapus item ini?')) {
+        return;
+    }
+    
+    if (type === 'satuan') {
+        // Find the item
+        const itemIndex = satuanItems.findIndex(item => item.id === parseInt(id));
+        if (itemIndex === -1) {
+            showToast('Error', 'Satuan tidak ditemukan', 'error');
+            return;
+        }
+        
+        const item = satuanItems[itemIndex];
+        
+        // Check if it's currently selected
+        const isSelected = document.getElementById('satuan').value === item.value;
+        
+        // All items can be deleted
+
+        
+        // Send API request to delete satuan
+        fetch(`/products/api/satuan/${id}`, {
+            method: 'DELETE'
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showToast('Sukses', data.message, 'success');
+                // Remove from local list
+                satuanItems.splice(itemIndex, 1);
+                // Update UI
+                updateSatuanSelect();
+                loadSatuanList();
+                
+                // If the deleted value was selected, reset to a default
+                if (isSelected) {
+                    document.getElementById('satuan').value = 'Pcs';
+                }
+            } else {
+                showToast('Error', data.message, 'error');
+            }
+        })
+        .catch(error => {
+            console.error('Error deleting satuan:', error);
+            showToast('Error', 'Gagal menghapus satuan', 'error');
+        });
+    } else if (type === 'kategori') {
+        // Find the item
+        const itemIndex = kategoriItems.findIndex(item => item.id === parseInt(id));
+        if (itemIndex === -1) {
+            showToast('Error', 'Kategori tidak ditemukan', 'error');
+            return;
+        }
+        
+        const item = kategoriItems[itemIndex];
+        
+        // Check if it's currently selected
+        const isSelected = document.getElementById('kategori').value === item.value;
+        
+        // All categories can be deleted
+
+        
+        // Send API request to delete kategori
+        fetch(`/products/api/kategori/${id}`, {
+            method: 'DELETE'
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showToast('Sukses', data.message, 'success');
+                // Remove from local list
+                kategoriItems.splice(itemIndex, 1);
+                // Update UI
+                updateKategoriSelect();
+                loadKategoriTable();
+                
+                // If the deleted value was selected, reset to empty
+                if (isSelected) {
+                    document.getElementById('kategori').value = '';
+                }
+            } else {
+                showToast('Error', data.message, 'error');
+            }
+        })
+        .catch(error => {
+            console.error('Error deleting kategori:', error);
+            showToast('Error', 'Gagal menghapus kategori', 'error');
+        });
+    }
+}
+
+// Load kategori from API
+function loadKategoriTable() {
+    const listElem = document.getElementById('kategoriTableBody');
+    listElem.innerHTML = '';
+    
+    fetch('/products/api/kategori')
+        .then(response => response.json())
+        .then(data => {
+            kategoriItems = data.kategori.map(item => ({
+                id: item.id,
+                value: item.nama,
+                is_default: item.is_default
+            }));
+            
+            // Update table rows in modal
+            listElem.innerHTML = ''; // Clear the table body
+            
+            if (kategoriItems.length === 0) {
+                const emptyRow = document.createElement('tr');
+                emptyRow.innerHTML = `
+                    <td colspan="2" class="text-center">
+                        <p class="text-muted my-2">Tidak ada kategori yang tersedia</p>
+                    </td>
+                `;
+                listElem.appendChild(emptyRow);
+            } else {
+                kategoriItems.forEach(item => {
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td>
+                            <strong>${item.value}</strong>
+                        </td>
+                        <td class="text-center">
+                            <button class="btn btn-sm btn-warning me-1" onclick="openEditKategoriModal(${item.id}, '${item.value}')">
+                                <i class="fas fa-edit"></i>
+                            </button>
+                            <button class="btn btn-sm btn-danger" onclick="deleteItem('kategori', ${item.id})">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </td>
+                    `;
+                    listElem.appendChild(row);
+                });
+            }
+            
+            // Update dropdown
+            updateKategoriSelect();
+        })
+        .catch(error => {
+            console.error('Error loading kategori:', error);
+            showToast('Error', 'Gagal memuat data kategori', 'error');
+        });
+}
+
+// Load satuan from API
+function loadSatuanList() {
+    const listElem = document.getElementById('satuanList');
+    listElem.innerHTML = '';
+    
+    fetch('/products/api/satuan')
+        .then(response => response.json())
+        .then(data => {
+            satuanItems = data.satuan.map(item => ({
+                id: item.id,
+                value: item.nama,
+                desc: item.deskripsi,
+                is_default: item.is_default
+            }));
+            
+            // Update list in modal
+            satuanItems.forEach(item => {
+                const listItem = document.createElement('div');
+                listItem.className = 'list-group-item d-flex justify-content-between align-items-center';
+                listItem.innerHTML = `
+                    <div>
+                        <strong>${item.value}</strong>
+                        <br>
+                        <small class="text-muted">${item.desc || ''}</small>
+                    </div>
+                    <div>
+                        <button class="btn btn-sm btn-warning me-1" onclick="openEditSatuanModal(${item.id}, '${item.value}', '${item.desc || ''}')">
+                            <i class="fas fa-edit"></i>
+                        </button>
+                        <button class="btn btn-sm btn-danger" onclick="deleteItem('satuan', ${item.id})">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
+                `;
+                listElem.appendChild(listItem);
+            });
+            
+            // Update dropdown
+            updateSatuanSelect();
+        })
+        .catch(error => {
+            console.error('Error loading satuan:', error);
+            showToast('Error', 'Gagal memuat data satuan', 'error');
+        });
+}
+
+// Update satuan dropdown
+function updateSatuanSelect() {
+    const selectElem = document.getElementById('satuan');
+    const currentValue = selectElem.value;
+    
+    // Clear all options
+    while (selectElem.options.length > 0) {
+        selectElem.remove(0);
+    }
+    
+    // Add empty option
+    const emptyOption = document.createElement('option');
+    emptyOption.value = '';
+    emptyOption.textContent = 'Pilih Satuan';
+    selectElem.appendChild(emptyOption);
+    
+    // Add all options
+    satuanItems.forEach(item => {
+        const option = document.createElement('option');
+        option.value = item.value;
+        option.textContent = item.value;
+        selectElem.appendChild(option);
+    });
+    
+    // Restore selected value if possible
+    if (currentValue && satuanItems.some(item => item.value === currentValue)) {
+        selectElem.value = currentValue;
+    }
+}
+
+// Load data from API instead of localStorage
+function loadCustomItems() {
+    // Initialize empty arrays
+    kategoriItems = [];
+    satuanItems = [];
+    
+    // Load from API
+    loadKategoriTable();
+    loadSatuanList();
+}
+
+// Initialize the application when DOM is ready
+document.addEventListener('DOMContentLoaded', function() {
+    // Initialize calculations
+    hitungKeuntungan();
+    hitungKeuntunganGrosir();
+    
+    // Load data from API instead of localStorage
+    loadCustomItems();
+    
+    // Initialize modals
+    document.querySelectorAll('.modal').forEach(modalEl => {
+        // Don't create new modal instances, Bootstrap will handle this automatically
+        // when using data-bs-toggle="modal"
+    });
+    
+    // Add direct event handlers for modal buttons
+    document.getElementById('openKategoriModalBtn').addEventListener('click', function() {
+        // Manually create and show the modal
+        const kategoriModal = document.getElementById('modalManageKategori');
+        
+        // Log for debugging
+        console.log('Kategori modal element:', kategoriModal);
+        
+        if (kategoriModal) {
+            // Try creating and showing the modal in different ways
+            try {
+                // Method 1: Using Bootstrap's Modal constructor
+                const bsModal = new bootstrap.Modal(kategoriModal);
+                bsModal.show();
+                console.log('Showing modal with Bootstrap constructor');
+            } catch (e) {
+                console.error('Error showing modal with method 1:', e);
+                
+                try {
+                    // Method 2: Using jQuery if available
+                    if (typeof $ !== 'undefined') {
+                        $(kategoriModal).modal('show');
+                        console.log('Showing modal with jQuery');
+                    } else {
+                        throw new Error('jQuery not available');
+                    }
+                } catch (e2) {
+                    console.error('Error showing modal with method 2:', e2);
+                    
+                    // Method 3: Manual display
+                    kategoriModal.style.display = 'block';
+                    kategoriModal.classList.add('show');
+                    document.body.classList.add('modal-open');
+                    
+                    // Add backdrop manually
+                    const backdrop = document.createElement('div');
+                    backdrop.className = 'modal-backdrop fade show';
+                    document.body.appendChild(backdrop);
+                    console.log('Showing modal with manual DOM manipulation');
+                }
+            }
+        } else {
+            console.error('Kategori modal element not found!');
+        }
+    });
+    
+    document.getElementById('openSatuanModalBtn').addEventListener('click', function() {
+        const satuanModal = document.getElementById('modalManageSatuan');
+        if (satuanModal) {
+            const bsModal = new bootstrap.Modal(satuanModal);
+            bsModal.show();
+        } else {
+            console.error('Satuan modal element not found!');
+        }
+    })
+    
+    // Set up event listeners for kode barang generation if needed
+    if (shouldGenerateKodeBarang) {
+        document.getElementById('kategori').addEventListener('change', generateKodeBarang);
+        document.getElementById('nama_barang').addEventListener('input', generateKodeBarang);
+    }
+});
+
+function attachPreviewListener(el){
+    el.addEventListener('click', function(){
+        const src = el.getAttribute('data-full') || el.src;
+        document.getElementById('previewImageModalImg').src = src;
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('imagePreviewModal')).show();
+    });
+}
+
+// Attach listener to existing preview if present
+document.addEventListener('DOMContentLoaded', function(){
+    document.querySelectorAll('.preview-thumb').forEach(attachPreviewListener);
+});
+</script>
+{% endblock %}

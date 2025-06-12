@@ -1,0 +1,185 @@
+{% extends "base.html" %}
+
+{% block title %}Riwayat Penjualan - POSEIDON{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-12">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h2><i class="fas fa-history me-2"></i>Riwayat Penjualan</h2>
+            {# Tombol Aksi Tambahan, contoh: Export
+            <div class="btn-group">
+                <button type="button" class="btn btn-outline-primary dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
+                    <i class="fas fa-cogs me-2"></i> Aksi
+                </button>
+                <ul class="dropdown-menu dropdown-menu-end">
+                    <li><a class="dropdown-item" href="#"><i class="fas fa-file-excel me-2"></i>Export ke Excel</a></li>
+                    <li><a class="dropdown-item" href="#"><i class="fas fa-file-pdf me-2"></i>Export ke PDF</a></li>
+                </ul>
+            </div>
+            #}
+        </div>
+    </div>
+</div>
+
+<!-- Filter (Opsional, bisa ditambahkan nanti) -->
+{#
+<div class="row mb-3">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-body">
+                <form method="GET" action="{{ url_for('sales.riwayat_penjualan') }}">
+                    <div class="row g-3 align-items-end">
+                        <div class="col-md-3">
+                            <label for="filterTanggalMulai" class="form-label">Dari Tanggal</label>
+                            <input type="date" class="form-control" id="filterTanggalMulai" name="tanggal_mulai" value="{{ request.args.get('tanggal_mulai', '') }}">
+                        </div>
+                        <div class="col-md-3">
+                            <label for="filterTanggalAkhir" class="form-label">Sampai Tanggal</label>
+                            <input type="date" class="form-control" id="filterTanggalAkhir" name="tanggal_akhir" value="{{ request.args.get('tanggal_akhir', '') }}">
+                        </div>
+                        <div class="col-md-3">
+                            <label for="filterPelanggan" class="form-label">Pelanggan</label>
+                            <input type="text" class="form-control" id="filterPelanggan" name="pelanggan" placeholder="Nama atau ID Pelanggan" value="{{ request.args.get('pelanggan', '') }}">
+                        </div>
+                        <div class="col-md-3">
+                            <button class="btn btn-primary w-100" type="submit">
+                                <i class="fas fa-filter me-2"></i> Filter
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+#}
+
+<!-- Tabel Riwayat Penjualan -->
+<div class="row">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">Daftar Transaksi</h5>
+            </div>
+            <div class="card-body">
+                {% if penjualan_list.items %}
+                <div class="table-responsive">
+                    <table class="table table-striped table-hover">
+                        <thead class="table-dark">
+                            <tr>
+                                <th>No. Transaksi</th>
+                                <th>Tanggal</th>
+                                <th>Pelanggan</th>
+                                <th class="text-end">Total Harga</th>
+                                <th class="text-center">Status</th>
+                                <th class="text-center">Detail</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for trx in penjualan_list.items %}
+                            <tr>
+                                <td><strong>{{ trx.no_transaksi }}</strong></td>
+                                <td>{{ trx.tanggal.strftime('%d %b %Y, %H:%M') }}</td>
+                                <td>
+                                    {% if trx.pelanggan_data %}
+                                        {{ trx.pelanggan_data.nama }}
+                                        {% if trx.pelanggan_data.no_hp and trx.pelanggan_data.no_hp != '-' %}
+                                            <small class="text-muted d-block">{{ trx.pelanggan_data.no_hp }}</small>
+                                        {% endif %}
+                                    {% else %}
+                                        <span class="text-muted">Umum</span>
+                                    {% endif %}
+                                </td>
+                                <td class="text-end fw-bold">Rp {{ "{:,.0f}".format(trx.total_harga).replace(',', '.') }}</td>
+                                <td class="text-center">
+                                    <span class="badge 
+                                        {% if trx.status == 'selesai' %}bg-success
+                                        {% elif trx.status == 'pending' %}bg-warning text-dark
+                                        {% elif trx.status == 'batal' %}bg-danger
+                                        {% else %}bg-secondary
+                                        {% endif %}">
+                                        {{ trx.status.title() if trx.status else 'N/A' }}
+                                    </span>
+                                </td>
+                                <td class="text-center">
+                                    <a href="{{ url_for('sales.struk', penjualan_id=trx.id) }}" class="btn btn-sm btn-primary" title="Lihat Struk">
+                                        <i class="fas fa-receipt"></i> Struk
+                                    </a>
+                                    {# Jika ada fungsi edit atau batal transaksi
+                                    <a href="#" class="btn btn-sm btn-warning ms-1" title="Edit Transaksi">
+                                        <i class="fas fa-edit"></i>
+                                    </a>
+                                    <a href="#" class="btn btn-sm btn-danger ms-1" title="Batalkan Transaksi" onclick="return confirm('Yakin ingin membatalkan transaksi ini?')">
+                                        <i class="fas fa-times-circle"></i>
+                                    </a>
+                                    #}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Pagination -->
+                {% if penjualan_list.pages > 1 %}
+                <nav aria-label="Page navigation" class="mt-4">
+                    <ul class="pagination justify-content-center">
+                        {# Tombol Previous #}
+                        <li class="page-item {% if not penjualan_list.has_prev %}disabled{% endif %}">
+                            <a class="page-link" href="{{ url_for('sales.riwayat_penjualan', page=penjualan_list.prev_num, **request.args) if penjualan_list.has_prev else '#' }}" aria-label="Previous">
+                                <span aria-hidden="true">«</span>
+                            </a>
+                        </li>
+
+                        {# Nomor Halaman #}
+                        {% for page_num in penjualan_list.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
+                            {% if page_num %}
+                                <li class="page-item {% if page_num == penjualan_list.page %}active{% endif %}">
+                                    <a class="page-link" href="{{ url_for('sales.riwayat_penjualan', page=page_num, **request.args) }}">{{ page_num }}</a>
+                                </li>
+                            {% else %}
+                                <li class="page-item disabled"><span class="page-link">...</span></li>
+                            {% endif %}
+                        {% endfor %}
+
+                        {# Tombol Next #}
+                        <li class="page-item {% if not penjualan_list.has_next %}disabled{% endif %}">
+                            <a class="page-link" href="{{ url_for('sales.riwayat_penjualan', page=penjualan_list.next_num, **request.args) if penjualan_list.has_next else '#' }}" aria-label="Next">
+                                <span aria-hidden="true">»</span>
+                            </a>
+                        </li>
+                    </ul>
+                </nav>
+                {% endif %}
+                <!-- End Pagination -->
+
+                {% else %}
+                <div class="text-center py-5">
+                    <i class="fas fa-folder-open fa-4x text-muted mb-3"></i>
+                    <h5 class="text-muted">Belum ada riwayat penjualan.</h5>
+                    <p class="text-muted">Semua transaksi penjualan yang berhasil akan ditampilkan di sini.</p>
+                    <a href="{{ url_for('sales.penjualan') }}" class="btn btn-success mt-3">
+                        <i class="fas fa-cash-register me-2"></i>Buat Transaksi Baru
+                    </a>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Script khusus untuk halaman riwayat, jika ada
+// Contoh: Inisialisasi date picker untuk filter
+// $(document).ready(function() {
+//     // Jika menggunakan library datepicker
+//     // $('#filterTanggalMulai, #filterTanggalAkhir').datepicker({
+//     //     format: 'yyyy-mm-dd',
+//     //     autoclose: true
+//     // });
+// });
+</script>
+{% endblock %}

@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}POSEIDON v1.0{% endblock %}</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="{{ url_for('static', filename='style.css') }}" rel="stylesheet">
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar navbar-expand-xl navbar-dark bg-success">
+        <div class="container custom-nav-container">
+            <a class="navbar-brand" href="{{ url_for('main.dashboard') }}">
+                <i class="fas fa-seedling me-2"></i>{{ store_profile.name if store_profile else 'POSEIDON System v1.0' }}
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav me-auto">
+                    <li class="nav-item">
+                        <a class="nav-link {{ 'active' if request.endpoint == 'dashboard' }}" href="{{ url_for('main.dashboard') }}">
+                            <i class="fas fa-tachometer-alt me-1"></i>Dashboard
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {{ 'active' if 'pelanggan' in request.endpoint }}" href="{{ url_for('customer.pelanggan') }}">
+                            <i class="fas fa-boxes me-1"></i>Pelanggan
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {{ 'active' if 'supplier' in request.endpoint }}" href="{{ url_for('supplier.supplier_list') }}">
+                            <i class="fas fa-truck me-1"></i>Supplier
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {{ 'active' if 'sales/penjualan' in request.path }}" href="{{ url_for('sales.penjualan') }}">
+                            <i class="fas fa-cash-register me-1"></i>Penjualan
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {{ 'active' if 'products' in request.endpoint }}" href="{{ url_for('products.barang') }}">
+                            <i class="fas fa-boxes me-1"></i>Barang
+                        </a>
+                    </li>
+                     <li class="nav-item">
+                        <a class="nav-link {{ 'active' if 'riwayat_penjualan' in request.endpoint }}" href="{{ url_for('sales.riwayat_penjualan') }}">
+                            <i class="fas fa-history me-1"></i>Riwayat
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {{ 'active' if 'laporan_penjualan' in request.endpoint }}" href="{{ url_for('sales.laporan_penjualan') }}">
+                            <i class="fas fa-chart-line me-1"></i>Laporan
+                        </a>
+                    </li>
+                </ul>
+                <ul class="navbar-nav ms-auto">
+                    {% if current_user.is_authenticated %}
+                        <li class="nav-item dropdown">
+                            <a class="nav-link dropdown-toggle d-flex align-items-center" href="#" id="userDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                <i class="fas fa-user-circle me-1"></i>{{ current_user.username }}
+                            </a>
+                            <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="userDropdown">
+                                {% if current_user.is_admin %}
+                                <li><a class="dropdown-item" href="{{ url_for('user_bp.user_list') }}"><i class="fas fa-users me-2"></i>Kelola Pengguna</a></li>
+                                <li><a class="dropdown-item" href="{{ url_for('store.pengaturan_toko') }}"><i class="fas fa-store me-2"></i>Pengaturan Toko</a></li>
+                                <li><a class="dropdown-item" href="{{ url_for('main.about') }}"><i class="fas fa-info-circle me-2"></i>About</a></li>
+                                <li><hr class="dropdown-divider"></li>
+                                {% endif %}
+                                <li><a class="dropdown-item" href="{{ url_for('auth.logout') }}"><i class="fas fa-sign-out-alt me-2"></i>Logout</a></li>
+                            </ul>
+                        </li>
+                    {% else %}
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ url_for('auth.login') }}"><i class="fas fa-sign-in-alt me-1"></i>Login</a>
+                        </li>
+                    {% endif %}
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <div class="container-fluid mt-4">
+        <!-- Flash Messages -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                <div class="row">
+                    <div class="col-12">
+                        {% for category, message in messages %}
+                            <div class="alert alert-{{ 'danger' if category == 'error' else 'success' }} alert-dismissible fade show" role="alert">
+                                {{ message }}
+                                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                            </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            {% endif %}
+        {% endwith %}
+
+        {% block content %}{% endblock %}
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    
+    {% block scripts %}{% endblock %}
+</body>
+</html>

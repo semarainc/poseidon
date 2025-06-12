@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Struk Penjualan - {{ penjualan.no_transaksi }}</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        @media print {
+            .no-print { display: none !important; }
+            body { margin: 0; }
+            .struk-container { 
+                width: 80mm !important; 
+                margin: 0 !important;
+                box-shadow: none !important;
+            }
+        }
+        
+        .struk-container {
+            max-width: 80mm;
+            margin: 20px auto;
+            padding: 15px;
+            border: 1px solid #ddd;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+            font-family: 'Courier New', monospace;
+            background: white;
+        }
+        
+        .struk-header {
+            text-align: center;
+            border-bottom: 1px dashed #000;
+            padding-bottom: 10px;
+            margin-bottom: 15px;
+        }
+        
+        .struk-header h2 {
+            margin: 0;
+            font-size: 18px;
+            font-weight: bold;
+        }
+        
+        .struk-header p {
+            margin: 2px 0;
+            font-size: 12px;
+        }
+        
+        .struk-info {
+            margin-bottom: 15px;
+            font-size: 12px;
+        }
+        
+        .struk-info div {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 3px;
+        }
+        
+        .struk-items {
+            margin-bottom: 15px;
+        }
+        
+        .item-header {
+            border-bottom: 1px solid #000;
+            padding-bottom: 5px;
+            margin-bottom: 10px;
+            font-weight: bold;
+            font-size: 12px;
+        }
+        
+        .item-row {
+            margin-bottom: 8px;
+            font-size: 12px;
+        }
+        
+        .item-name {
+            font-weight: bold;
+            margin-bottom: 2px;
+        }
+        
+        .item-detail {
+            display: flex;
+            justify-content: space-between;
+            color: #666;
+        }
+        
+        .struk-total {
+            border-top: 1px dashed #000;
+            padding-top: 10px;
+            font-size: 13px;
+        }
+        
+        .struk-total .total-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 5px;
+        }
+        
+        .struk-total .grand-total {
+            font-weight: bold;
+            font-size: 14px;
+            border-top: 1px solid #000;
+            padding-top: 5px;
+            margin-top: 5px;
+        }
+        
+        .struk-footer {
+            text-align: center;
+            margin-top: 20px;
+            padding-top: 15px;
+            border-top: 1px dashed #000;
+            font-size: 11px;
+        }
+        
+        .btn-print {
+            margin: 20px auto;
+            display: block;
+            width: 200px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Tombol Print -->
+        <div class="text-center no-print">
+            <button class="btn btn-success btn-print" onclick="window.print()">
+                <i class="fas fa-print"></i> Cetak Struk
+            </button>
+            <a href="{{ url_for('sales.penjualan') }}" class="btn btn-secondary">
+                <i class="fas fa-arrow-left"></i> Kembali ke Penjualan
+            </a>
+        </div>
+
+        <!-- Struk Container -->
+        <div class="struk-container">
+            <!-- Header Toko -->
+            <div class="struk-header">
+                <h2>{{ store_profile.name if store_profile else 'POSEIDON MART' }}</h2>
+                <p>{{ store_profile.tagline if store_profile else 'Toko Alat Perkebunan Terlengkap' }}</p>
+                <p>{{ store_profile.address if store_profile else 'Jl. Kebun Raya No. 123, Denpasar' }}</p>
+                <p>Telp: {{ store_profile.phone if store_profile else '(0361) 123-4567' }}</p>
+            </div>
+
+            <!-- Info Transaksi -->
+            <div class="struk-info">
+                <div>
+                    <span>No. Transaksi:</span>
+                    <span>{{ penjualan.no_transaksi }}</span>
+                </div>
+                <div>
+                    <span>Tanggal:</span>
+                    <span>{{ penjualan.tanggal.strftime('%d/%m/%Y %H:%M') }}</span>
+                </div>
+                <div>
+                    <span>Kasir:</span>
+                    <span>{{ current_user.username }}</span>
+                </div>
+                {% if pelanggan %}
+                <div>
+                    <span>Pelanggan:</span>
+                    <span>{{ pelanggan.nama }}</span>
+                </div>
+                {% if pelanggan.no_hp and pelanggan.no_hp != '-' %}
+                <div>
+                    <span>No. HP:</span>
+                    <span>{{ pelanggan.no_hp }}</span>
+                </div>
+                {% endif %}
+                {% else %}
+                 <div>
+                    <span>Pelanggan:</span>
+                    <span>Umum</span>
+                </div>
+                {% endif %}
+                <div>
+                    <span>Pembayaran:</span>
+                    <span>{{ penjualan.metode_pembayaran.title() if penjualan.metode_pembayaran else 'N/A' }}</span>
+                </div>
+            </div>
+
+            <!-- Daftar Items -->
+            <div class="struk-items">
+                <div class="item-header">
+                    DAFTAR PEMBELIAN
+                </div>
+                {% for item in detail_penjualan %}
+                <div class="item-row">
+                    <div class="item-name">{{ item.barang_data.nama_barang if item.barang_data else 'Nama Barang Tidak Ada' }}</div>
+                    <div class="item-detail">
+                        <span>{{ '%.2f' % item.jumlah }} {{ item.barang_data.satuan if item.barang_data and item.barang_data.satuan else 'Pcs' }} x {{ "{:,.0f}".format(item.harga_satuan or 0).replace(',', '.') }}
+                        {% if item.tipe_harga == 'grosir' %}(G){% endif %}</span>
+                        <span>{{ "{:,.0f}".format(item.subtotal or 0).replace(',', '.') }}</span>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+
+            <!-- Total -->
+            <div class="struk-total">
+                <div class="total-row">
+                    <span>Subtotal:</span>
+                    <span>Rp {{ "{:,.0f}".format(penjualan.total_harga or 0).replace(',', '.') }}</span>
+                </div>
+                {# Add discount if applicable in future #}
+                {# <div class="total-row">
+                    <span>Diskon:</span>
+                    <span>Rp 0</span>
+                </div> #}
+                <div class="total-row grand-total">
+                    <span>TOTAL:</span>
+                    <span>Rp {{ "{:,.0f}".format(penjualan.total_harga or 0).replace(',', '.') }}</span>
+                </div>
+
+                {% if penjualan.metode_pembayaran == 'tunai' and penjualan.jumlah_bayar is not none %}
+                <div class="total-row">
+                    <span>TUNAI:</span>
+                    <span>Rp {{ "{:,.0f}".format(penjualan.jumlah_bayar or 0).replace(',', '.') }}</span>
+                </div>
+                <div class="total-row">
+                    <span>KEMBALI:</span>
+                    <span>Rp {{ "{:,.0f}".format(penjualan.kembalian or 0).replace(',', '.') }}</span>
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- Footer -->
+            <div class="struk-footer">
+                <p>*** TERIMA KASIH ***</p>
+                <p>Barang yang sudah dibeli</p>
+                <p>tidak dapat dikembalikan</p>
+                <br>
+                <p>{{ penjualan.tanggal.strftime('%d/%m/%Y %H:%M:%S') }}</p>
+                <p><small>Keterangan: (G) = Harga Grosir</small></p>
+            </div>
+        </div>
+
+        <!-- Info Tambahan (tidak tercetak) -->
+        <div class="card mt-4 no-print">
+            <div class="card-header">
+                <h5>Detail Transaksi</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <p><strong>Status:</strong> 
+                            <span class="badge bg-success">{{ penjualan.status.title() if penjualan.status else 'N/A' }}</span>
+                        </p>
+                        <p><strong>Metode Pembayaran:</strong> {{ penjualan.metode_pembayaran.title() if penjualan.metode_pembayaran else 'N/A' }}</p>
+                        {% if penjualan.metode_pembayaran == 'tunai' and penjualan.jumlah_bayar is not none %}
+                            <p><strong>Jumlah Bayar:</strong> Rp {{ "{:,.2f}".format(penjualan.jumlah_bayar or 0).replace(',', '#').replace('.', ',').replace('#', '.') }}</p>
+                            <p><strong>Kembalian:</strong> Rp {{ "{:,.2f}".format(penjualan.kembalian or 0).replace(',', '#').replace('.', ',').replace('#', '.') }}</p>
+                        {% endif %}
+                        <p><strong>Total Item:</strong> {{ detail_penjualan|length }} jenis barang</p>
+                        <p><strong>Total Quantity:</strong> 
+                            {% set total_qty = namespace(value=0) %} 
+                            {% for item_qty in detail_penjualan %}{% set total_qty.value = total_qty.value + (item_qty.jumlah or 0) %}{% endfor %}
+                            {{ '%.2f' % total_qty.value }} item
+                        </p>
+                    </div>
+                    <div class="col-md-6">
+                        {% if pelanggan and pelanggan.alamat and pelanggan.alamat != '-' %}
+                        <p><strong>Alamat Pelanggan:</strong></p>
+                        <p class="text-muted">{{ pelanggan.alamat }}</p>
+                        {% endif %}
+                    </div>
+                </div>
+                
+                <h6 class="mt-3">Rincian Pembelian:</h6>
+                <div class="table-responsive">
+                    <table class="table table-sm table-striped">
+                        <thead>
+                            <tr>
+                                <th>Kode</th>
+                                <th>Nama Barang</th>
+                                <th>Qty</th>
+                                <th>Satuan</th>
+                                <th>Harga</th>
+                                <th>Tipe</th>
+                                <th>Subtotal</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for item in detail_penjualan %}
+                            <tr>
+                                <td>{{ item.barang_data.kode_barang if item.barang_data else 'N/A' }}</td>
+                                <td>{{ item.barang_data.nama_barang if item.barang_data else 'N/A' }}</td>
+                                <td>{{ item.jumlah or 0 }}</td>
+                                <td>{{ item.barang_data.satuan if item.barang_data else 'Pcs' }}</td>
+                                <td>Rp {{ "{:,.0f}".format(item.harga_satuan or 0).replace(',', '.') }}</td>
+                                <td>
+                                    <span class="badge {{ 'bg-info text-dark' if item.tipe_harga == 'grosir' else 'bg-primary' }}">
+                                        {{ item.tipe_harga.title() if item.tipe_harga else 'Eceran' }}
+                                    </span>
+                                </td>
+                                <td>Rp {{ "{:,.0f}".format(item.subtotal or 0).replace(',', '.') }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                        <tfoot>
+                            <tr class="table-dark">
+                                <th colspan="6">TOTAL</th>
+                                <th>Rp {{ "{:,.0f}".format(penjualan.total_harga or 0).replace(',', '.') }}</th>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    {# <script src="https://kit.fontawesome.com/your-fontawesome-kit.js" crossorigin="anonymous"></script> #}
+    
+    <script>
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.get('auto_print') === '1') {
+            setTimeout(() => {
+                window.print();
+            }, 2000);
+        }
+
+        window.addEventListener('afterprint', function() {
+            const urlParams = new URLSearchParams(window.location.search);
+            if (urlParams.get('auto_print') === '1') {
+                setTimeout(() => {
+                    // window.location.href = "{{ url_for('sales.penjualan') }}"; // Don't redirect immediately, user might want to see the web page
+                }, 1000);
+            }
+        });
+    </script>
+</body>
+</html>

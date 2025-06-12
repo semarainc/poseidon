@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+
+{% block title %}{{ action }} Pelanggan - POSEIDON{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-8 offset-md-2">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-{{ 'user-plus' if action == 'Tambah' else 'user-edit' }} me-2"></i>
+                    {{ action }} Pelanggan
+                </h5>
+            </div>
+            <div class="card-body">
+                <form method="POST">
+                    <div class="mb-3">
+                        <label for="nama" class="form-label">Nama Lengkap *</label>
+                        <input type="text" class="form-control" id="nama" name="nama" 
+                               value="{{ pelanggan.nama if pelanggan else '' }}" required>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="no_hp" class="form-label">Nomor HP *</label>
+                        <input type="tel" class="form-control" id="no_hp" name="no_hp" 
+                               value="{{ pelanggan.no_hp if pelanggan else '' }}" required>
+                        <div class="form-text">Contoh: 081234567890</div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="alamat" class="form-label">Alamat</label>
+                        <textarea class="form-control" id="alamat" name="alamat" rows="3">{{ pelanggan.alamat if pelanggan else '' }}</textarea>
+                        <div class="form-text">Alamat lengkap pelanggan (opsional)</div>
+                    </div>
+                    
+                    <div class="d-flex justify-content-between">
+                        <a href="{{ url_for('customer.pelanggan') }}" class="btn btn-secondary">
+                            <i class="fas fa-arrow-left me-2"></i>Kembali
+                        </a>
+                        <button type="submit" class="btn btn-success">
+                            <i class="fas fa-save me-2"></i>{{ action }} Pelanggan
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Format phone number input
+document.getElementById('no_hp').addEventListener('input', function(e) {
+    let value = this.value.replace(/[^0-9]/g, '');
+    // Ensure it starts with 0 if it's a local number
+    if (value.length > 0 && !value.startsWith('0') && !value.startsWith('62')) {
+        value = '0' + value;
+    }
+    this.value = value;
+});
+
+// Validate phone number format
+document.querySelector('form').addEventListener('submit', function(e) {
+    const noHp = document.getElementById('no_hp').value;
+    const phoneRegex = /^(0|62)[0-9]{8,13}$/;
+    
+    if (!phoneRegex.test(noHp)) {
+        e.preventDefault();
+        alert('Format nomor HP tidak valid. Contoh: 081234567890 atau 6281234567890');
+        document.getElementById('no_hp').focus();
+    }
+});
+</script>
+{% endblock %}

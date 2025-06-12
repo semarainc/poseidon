@@ -1,0 +1,31 @@
+{% extends 'base.html' %}
+{% block title %}Pengaturan Toko{% endblock %}
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-lg-6 col-md-8">
+    <h3 class="mb-4 text-center">Pengaturan Profil Toko</h3>
+    <form method="POST" class="card shadow-sm p-4">
+      <div class="mb-3">
+        <label class="form-label">Nama Toko</label>
+        <input type="text" name="name" class="form-control" value="{{ profile.name }}" required>
+      </div>
+      <div class="mb-3">
+        <label class="form-label">Tagline</label>
+        <input type="text" name="tagline" class="form-control" value="{{ profile.tagline }}">
+      </div>
+      <div class="mb-3">
+        <label class="form-label">Alamat</label>
+        <textarea name="address" class="form-control" rows="2">{{ profile.address }}</textarea>
+      </div>
+      <div class="mb-3">
+        <label class="form-label">Telepon</label>
+        <input type="text" name="phone" class="form-control" value="{{ profile.phone }}">
+      </div>
+      <div class="text-center">
+        <button type="submit" class="btn btn-success"><i class="fas fa-save me-2"></i>Simpan Perubahan</button>
+        <a href="{{ url_for('main.dashboard') }}" class="btn btn-secondary ms-2">Batal</a>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

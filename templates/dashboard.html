@@ -1,0 +1,190 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - POSEIDON{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-12">
+        <h2 class="mb-4">
+            <i class="fas fa-tachometer-alt me-2"></i>Dashboard
+        </h2>
+    </div>
+</div>
+
+<div class="row mb-4">
+    <div class="col-lg-3 col-md-6 mb-3">
+        <div class="card bg-primary text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h4 class="mb-0">{{ total_barang }}</h4>
+                        <p class="mb-0"><small>Total Barang</small></p>
+                    </div>
+                    <div class="align-self-center"><i class="fas fa-boxes fa-2x"></i></div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-3 col-md-6 mb-3">
+        <div class="card bg-success text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h4 class="mb-0">{{ total_pelanggan }}</h4>
+                        <p class="mb-0"><small>Total Pelanggan</small></p>
+                    </div>
+                    <div class="align-self-center"><i class="fas fa-users fa-2x"></i></div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-3 col-md-6 mb-3">
+        <div class="card bg-info text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h4 class="mb-0">{{ total_transaksi }}</h4>
+                        <p class="mb-0"><small>Total Transaksi</small></p>
+                    </div>
+                    <div class="align-self-center"><i class="fas fa-receipt fa-2x"></i></div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-3 col-md-6 mb-3">
+        <div class="card bg-warning text-dark"> 
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h4 class="mb-0">Rp {{ "{:,.0f}".format(penjualan_hari_ini or 0).replace(',', '.') }}</h4>
+                        <p class="mb-0"><small>Penjualan Hari Ini</small></p>
+                    </div>
+                    <div class="align-self-center"><i class="fas fa-money-bill-wave fa-2x"></i></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mb-4">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="fas fa-rocket me-2"></i>Aksi Cepat</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-3 mb-2"><a href="{{ url_for('sales.penjualan') }}" class="btn btn-success w-100"><i class="fas fa-cash-register me-2"></i>Transaksi Baru</a></div>
+                    <div class="col-md-3 mb-2"><a href="{{ url_for('products.tambah_barang') }}" class="btn btn-primary w-100"><i class="fas fa-plus me-2"></i>Tambah Barang</a></div>
+                    <div class="col-md-3 mb-2"><a style="color: white;" href="{{ url_for('customer.tambah_pelanggan') }}" class="btn btn-info w-100"><i class="fas fa-user-plus me-2" style="color: white;"></i>Tambah Pelanggan</a></div>
+                    <div class="col-md-3 mb-2"><a href="{{ url_for('sales.riwayat_penjualan') }}" class="btn btn-secondary w-100"><i class="fas fa-history me-2"></i>Lihat Riwayat</a></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    {# --- Peringatan Stok Rendah --- #}
+    {% if barang_stok_rendah %}
+    <div class="col-md-6 mb-4">
+        <div class="card border-danger">
+            <div class="card-header bg-danger text-white">
+                <h5 class="mb-0"><i class="fas fa-exclamation-triangle me-2"></i>Peringatan Stok Rendah (<10)</h5>
+            </div>
+            <div class="card-body" style="max-height: 300px; overflow-y: auto;">
+                <ul class="list-group list-group-flush">
+                    {% for barang in barang_stok_rendah %}
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        <div>
+                            <a href="{{ url_for('products.edit_barang', id=barang.id) }}" class="text-decoration-none">
+                                {{ barang.nama_barang }}
+                            </a> 
+                            <small class="text-muted">({{ barang.kode_barang }})</small>
+                        </div>
+                        <span class="badge bg-danger rounded-pill">{{ barang.stok }}</span>
+                    </li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+    
+    {# --- START: Informasi Stok Mau Habis (10-19) --- #}
+    {% if barang_stok_mau_habis %}
+    <div class="col-md-6"> {# Changed to col-md-12 to appear below the above two if they are side-by-side #}
+        <div class="card border-info">
+            <div class="card-header bg-info text-white">
+                <h5 class="mb-0"><i class="fas fa-boxes me-2"></i>Informasi Stok Akan Segera Habis (10-19)</h5>
+            </div>
+            <div class="card-body" style="max-height: 300px; overflow-y: auto;">
+                <ul class="list-group list-group-flush">
+                    {% for barang_sh in barang_stok_mau_habis %}
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        <div>
+                            <a href="{{ url_for('products.edit_barang', id=barang_sh.id) }}" class="text-decoration-none">
+                                {{ barang_sh.nama_barang }}
+                            </a> 
+                            <small class="text-muted">({{ barang_sh.kode_barang }})</small>
+                        </div>
+                        <span class="badge bg-info rounded-pill">{{ barang_sh.stok }}</span>
+                    </li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+    {# --- Barang Segera Kadaluarsa --- #}
+    {% if barang_kadaluarsa_dekat %}
+      {% if barang_stok_mau_habis and barang_stok_rendah %}
+      <div class="col-md-12">
+      {% else %}
+      <div class="col-md-6">
+      {% endif %}
+        <div class="card border-warning">
+            <div class="card-header bg-warning text-dark">
+                <h5 class="mb-0" style="color: white;"><i class="fas fa-bell me-2"></i>Barang Segera Kadaluarsa / Sudah Kadaluarsa (30 hari)</h5>
+            </div>
+            <div class="card-body" style="max-height: 300px; overflow-y: auto;">
+                <ul class="list-group list-group-flush">
+                    {% for barang_exp in barang_kadaluarsa_dekat %}
+                    {% set diff_days = (barang_exp.tanggal_kadaluarsa - today_date).days if barang_exp.tanggal_kadaluarsa and today_date else 9999 %}
+                    <li class="list-group-item d-flex justify-content-between align-items-center {{ 'list-group-item-danger' if diff_days < 0 else ('list-group-item-warning' if diff_days <= 7 else '') }}">
+                        <div>
+                            <a href="{{ url_for('products.edit_barang', id=barang_exp.id) }}" class="text-decoration-none">
+                                {{ barang_exp.nama_barang }}
+                            </a>
+                            <small class="text-muted">({{ barang_exp.kode_barang }})</small>
+                            {% if barang_exp.tanggal_kadaluarsa %}
+                            <small class="d-block text-muted">Exp: {{ barang_exp.tanggal_kadaluarsa.strftime('%d %b %Y') }}</small>
+                            {% endif %}
+                        </div>
+                        {% if barang_exp.tanggal_kadaluarsa %}
+                            {% if diff_days < 0 %}
+                                <span class="badge bg-danger">Kadaluarsa</span>
+                            {% elif diff_days == 0 %}
+                                <span class="badge bg-warning text-dark">Hari Ini</span>
+                            {% else %}
+                                <span class="badge bg-info">{{ diff_days }} hari lagi</span>
+                            {% endif %}
+                        {% else %}
+                             <span class="badge bg-secondary">N/A</span>
+                        {% endif %}
+                    </li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+    {# --- END: Informasi Stok Mau Habis --- #}
+</div>
+
+{% if not barang_stok_rendah and not barang_kadaluarsa_dekat and not barang_stok_mau_habis %}
+    <div class="col-md-12">
+        <p class="text-center text-muted fst-italic mt-3">Tidak ada peringatan stok atau kadaluarsa saat ini.</p>
+    </div>
+{% endif %}
+{% endblock %}

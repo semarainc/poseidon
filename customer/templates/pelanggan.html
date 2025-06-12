@@ -1,0 +1,98 @@
+{% extends "base.html" %}
+
+{% block title %}Manajemen Pelanggan - POSEIDON{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-12">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h2><i class="fas fa-users me-2"></i>Manajemen Pelanggan</h2>
+            <a href="{{ url_for('customer.tambah_pelanggan') }}" class="btn btn-success">
+                <i class="fas fa-user-plus me-2"></i>Tambah Pelanggan
+            </a>
+        </div>
+    </div>
+</div>
+
+<!-- Search Form -->
+<div class="row mb-3">
+    <div class="col-md-6">
+        <form method="GET" action="{{ url_for('customer.pelanggan') }}">
+            <div class="input-group">
+                <input type="text" class="form-control" name="search" placeholder="Cari berdasarkan nama atau nomor HP..." value="{{ search }}">
+                <button class="btn btn-primary" type="submit">
+                    <i class="fas fa-search"></i> Cari
+                </button>
+                {% if search %}
+                <a href="{{ url_for('customer.pelanggan') }}" class="btn btn-outline-secondary">
+                    <i class="fas fa-times"></i> Reset
+                </a>
+                {% endif %}
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Pelanggan Table -->
+<div class="row">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">Daftar Pelanggan</h5>
+            </div>
+            <div class="card-body">
+                {% if pelanggan_list %}
+                <div class="table-responsive">
+                    <table class="table table-striped table-hover">
+                        <thead class="table-dark">
+                            <tr>
+                                <th>Nama</th>
+                                <th>No. HP</th>
+                                <th>Alamat</th>
+                                <th>Terdaftar</th>
+                                <th>Aksi</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for pelanggan in pelanggan_list %}
+                            <tr>
+                                <td><strong>{{ pelanggan.nama }}</strong></td>
+                                <td>{{ pelanggan.no_hp }}</td>
+                                <td>{{ pelanggan.alamat[:50] + '...' if pelanggan.alamat and pelanggan.alamat|length > 50 else pelanggan.alamat or '-' }}</td>
+                                <td>{{ pelanggan.created_at.strftime('%d/%m/%Y') }}</td>
+                                <td>
+                                    <div class="btn-group" role="group">
+                                        <a href="{{ url_for('customer.edit_pelanggan', id=pelanggan.id) }}" class="btn btn-sm btn-warning">
+                                            <i class="fas fa-edit"></i>
+                                        </a>
+                                        <a href="{{ url_for('customer.hapus_pelanggan', id=pelanggan.id) }}" 
+                                           class="btn btn-sm btn-danger"
+                                           onclick="return confirm('Yakin ingin menghapus pelanggan ini?')">
+                                            <i class="fas fa-trash"></i>
+                                        </a>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="text-center py-4">
+                    <i class="fas fa-users fa-3x text-muted mb-3"></i>
+                    <h5 class="text-muted">Tidak ada pelanggan ditemukan</h5>
+                    {% if search %}
+                    <p class="text-muted">Coba ubah kata kunci pencarian Anda</p>
+                    {% else %}
+                    <p class="text-muted">Mulai dengan menambahkan pelanggan pertama</p>
+                    <a href="{{ url_for('customer.tambah_pelanggan') }}" class="btn btn-success">
+                        <i class="fas fa-user-plus me-2"></i>Tambah Pelanggan
+                    </a>
+                    {% endif %}
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

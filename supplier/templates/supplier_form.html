@@ -1,0 +1,35 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ action }} Supplier - POSEIDON{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-8 offset-md-2">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="fas fa-{{ 'plus' if action == 'Tambah' else 'edit' }} me-2"></i>{{ action }} Supplier</h5>
+            </div>
+            <div class="card-body">
+                <form method="POST">
+                    <div class="mb-3">
+                        <label class="form-label" for="nama">Nama Supplier *</label>
+                        <input type="text" class="form-control" id="nama" name="nama" required value="{{ supplier.nama if supplier and not supplier is mapping else (supplier.get('nama') if supplier is mapping else '') }}">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label" for="no_hp">No HP</label>
+                        <input type="text" class="form-control" id="no_hp" name="no_hp" value="{{ supplier.no_hp if supplier and not supplier is mapping else (supplier.get('no_hp') if supplier is mapping else '') }}">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label" for="alamat">Alamat</label>
+                        <textarea class="form-control" id="alamat" name="alamat">{{ supplier.alamat if supplier and not supplier is mapping else (supplier.get('alamat') if supplier is mapping else '') }}</textarea>
+                    </div>
+                    <div class="d-flex justify-content-between">
+                        <a href="{{ url_for('supplier.supplier_list') }}" class="btn btn-secondary"><i class="fas fa-arrow-left me-1"></i> Kembali</a>
+                        <button type="submit" class="btn btn-success"><i class="fas fa-save me-1"></i> {{ action }} Supplier</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

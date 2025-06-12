@@ -1,0 +1,1094 @@
+{% extends "base.html" %}
+
+{% block title %}Transaksi Penjualan - POSEIDON{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-12">
+        <h2 class="mb-4">
+            <i class="fas fa-cash-register me-2"></i>Transaksi Penjualan
+        </h2>
+    </div>
+</div>
+
+<!-- Toast Container -->
+<div class="position-fixed top-0 end-0 p-3" style="z-index: 1080">
+    <div id="liveToast" class="toast" role="alert" aria-live="assertive" aria-atomic="true">
+        <div class="toast-header">
+            <strong class="me-auto" id="toastTitle">Notifikasi</strong>
+            <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
+        </div>
+        <div class="toast-body" id="toastMessage"></div>
+    </div>
+</div>
+
+<!-- Keyboard Shortcuts Info -->
+<div class="row mb-3">
+    <div class="col-md-12">
+        <div class="alert alert-info alert-dismissible fade show" role="alert">
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            <strong>Keyboard Shortcuts:</strong> 
+            <span class="badge bg-primary ms-1">F1</span> Cari Barang
+            <span class="badge bg-primary ms-1">F2</span> Proses Pembayaran
+            <span class="badge bg-primary ms-1">F3</span> Reset Antrean
+            <span class="badge bg-primary ms-1">F4</span> Tambah Antrean
+        </div>
+    </div>
+</div>
+
+<div class="row mb-3">
+    <div class="col-md-12 d-flex align-items-center">
+        <ul class="nav nav-tabs" id="salesQueueTabs" role="tablist" style="flex-grow: 1;">
+            {# Tab antrean akan di-generate oleh JavaScript #}
+        </ul>
+        <button class="btn btn-sm btn-outline-success ms-2" id="addQueueBtn" title="Tambah Antrean (F4)">
+            <i class="fas fa-plus"></i> Tambah Antrean
+        </button>
+    </div>
+</div>
+
+<div class="tab-content" id="salesQueueTabContent">
+    <div class="row" id="activeSaleContent" style="display: none;"> 
+        <div class="col-lg-7 col-md-12 mb-3">
+            <div class="card mb-3">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="fas fa-search me-2"></i>Cari Barang (F1)</h5>
+                </div>
+                <div class="card-body">
+                    <div class="input-group">
+                        <input type="text" id="searchBarang" class="form-control" 
+                               placeholder="Ketik nama barang atau scan barcode...">
+                        <button class="btn btn-primary" type="button" onclick="searchBarangManual()">
+                            <i class="fas fa-search"></i> Cari
+                        </button>
+                    </div>
+                    <div id="searchResults" class="mt-3 list-group"></div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="fas fa-shopping-cart me-2"></i>Keranjang Belanja (<span id="activeQueueName" class="fw-normal">Tidak Ada</span>)</h5>
+                </div>
+                <div class="card-body">
+                    <div id="cartItemsContainer">
+                         <div class="text-center text-muted py-4" id="cartEmptyMessage">
+                            <i class="fas fa-shopping-cart fa-3x mb-3"></i>
+                            <p>Keranjang masih kosong</p>
+                        </div>
+                    </div>
+                    <div id="cartSummary" class="mt-3 pt-3 border-top" style="display: none;">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <h5>Total Item: <span id="totalItems" class="fw-bold">0</span></h5>
+                            </div>
+                            <div class="col-md-6 text-end">
+                                <h5>Total Harga: <span id="totalHarga" class="fw-bold text-success">Rp 0</span></h5>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-5 col-md-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="fas fa-user me-2"></i>Informasi Transaksi</h5>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label for="pelangganSelect" class="form-label">Pelanggan (Opsional)</label>
+                        <select id="pelangganSelect" class="form-select">
+                            <option value="">-- Pilih Pelanggan --</option>
+                            {% for pelanggan_item in pelanggan_list %}
+                            <option value="{{ pelanggan_item.id }}">{{ pelanggan_item.nama }} - {{ pelanggan_item.no_hp or 'N/A' }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="metodePembayaran" class="form-label">Metode Pembayaran</label>
+                        <select id="metodePembayaran" class="form-select" onchange="toggleCashPaymentFields()">
+                            <option value="tunai" selected>Tunai</option>
+                            <option value="transfer">Transfer Bank</option>
+                            <option value="qris">QRIS</option>
+                            <option value="debit">Kartu Debit</option>
+                            <option value="kredit">Kartu Kredit</option>
+                        </select>
+                    </div>
+                    <div class="d-grid gap-2 mt-4">
+                        <button id="btnBayar" class="btn btn-success btn-lg" onclick="prosesPembayaranCurrentQueue()" disabled>
+                            <i class="fas fa-credit-card me-2"></i>Proses Pembayaran (F2)
+                        </button>
+                        <button class="btn btn-danger" id="btnResetQueue" onclick="resetCurrentQueueConfirm()">
+                            <i class="fas fa-redo me-2"></i>Reset Antrean Ini (F3)
+                        </button>
+                    </div>
+                </div>
+            </div>
+            <div class="card mt-3">
+                <div class="card-header">
+                    <h6 class="mb-0"><i class="fas fa-star me-2"></i>Barang Cepat</h6>
+                </div>
+                <div class="card-body p-0">
+                    <div id="quickAddItems">
+                        <p class="text-muted p-3"><small>Loading...</small></p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div id="noQueueMessage" class="col-12 text-center p-5" style="display: none;">
+        <i class="fas fa-list-ul fa-3x text-muted mb-3"></i>
+        <h4>Tidak ada antrean aktif.</h4>
+        <p>Klik "Tambah Antrean" untuk memulai transaksi baru atau pilih antrean yang sudah ada.</p>
+    </div>
+</div>
+
+
+<div class="modal fade" id="modalKonfirmasi" tabindex="-1" aria-labelledby="modalKonfirmasiLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalKonfirmasiLabel">Konfirmasi Pembayaran</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p><strong>Antrean:</strong> <span id="konfirmasiAntreanNama" class="fw-bold"></span></p>
+                <p><strong>Total Transaksi:</strong> <span id="konfirmasiTotalHarga" class="fw-bold"></span></p>
+                <p><strong>Pelanggan:</strong> <span id="konfirmasiPelanggan"></span></p>
+                <p><strong>Metode Pembayaran:</strong> <span id="konfirmasiMetodeText"></span></p>
+                
+                <div id="cashPaymentFields" style="display: none;">
+                    <hr>
+                    <div class="mb-3">
+                        <label for="jumlahBayarInput" class="form-label">Jumlah Bayar (Rp):</label>
+                        <input type="number" step="any" class="form-control" id="jumlahBayarInput" placeholder="Masukkan jumlah uang" oninput="calculateChange()">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Kembalian (Rp):</label>
+                        <input type="text" class="form-control" id="kembalianDisplay" readonly value="Rp 0">
+                    </div>
+                     <div id="paymentError" class="alert alert-danger mt-2" style="display: none;"></div>
+                </div>
+                <p class="mt-3">Anda yakin ingin melanjutkan transaksi untuk antrean ini?</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+                <button type="button" class="btn btn-success" id="btnKonfirmasiFinal" onclick="konfirmasiDanBayarCurrentQueue()">
+                    <i class="fas fa-check me-2"></i>Ya, Konfirmasi & Bayar
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let salesQueues = []; 
+let activeQueueId = null;
+
+// === SERVER-SIDE QUEUE ONLY ===
+async function syncQueuesFromBackend() {
+    const res = await fetch('/sales/antrian');
+    const backendQueues = await res.json();
+    // Pastikan tidak ada duplikat backendId di salesQueues
+    const uniqueQueues = [];
+    const seenIds = new Set();
+    backendQueues.forEach(q => {
+        if (!seenIds.has(q.id)) {
+            seenIds.add(q.id);
+            uniqueQueues.push({
+                id: 'antrian-' + q.id,
+                name: q.nama_antrian,
+                cart: [],
+                customerId: '',
+                paymentMethod: 'tunai',
+                backendId: q.id
+            });
+        }
+    });
+    salesQueues = uniqueQueues;
+    if (salesQueues.length > 0) {
+        activeQueueId = salesQueues[0].id;
+    } else {
+        activeQueueId = null;
+    }
+    renderQueueTabs();
+    updateCartDisplay();
+}
+
+async function addQueue() {
+    const newQueueName = `Antrean #${salesQueues.length + 1}`;
+    try {
+        const res = await fetch('/sales/antrian/tambah', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ nama_antrian: newQueueName, data_antrian: JSON.stringify([]) })
+        });
+        if (!res.ok) {
+            const errText = await res.text();
+            console.error('Gagal tambah antrean:', errText);
+            showToast('Gagal', 'Gagal menambah antrean ' + "", 'error');
+            return;
+        }
+        const data = await res.json();
+        if (data.success) {
+            await syncQueuesFromBackend();
+            const newQueue = salesQueues.find(q => q.backendId == data.id);
+            if (newQueue) {
+                await switchQueue(newQueue.id);
+                await updateQueueCartToBackend(newQueue.id);
+            }
+            renderQueueTabs();
+        } else {
+            console.error('Tambah antrean gagal:', data.message);
+            showToast('Gagal', 'Tambah antrean gagal: ' + (data.message || 'unknown error'), 'error');
+        }
+    } catch (e) {
+        console.error('Error saat menambah antrean:', e);
+        showToast('Error', 'Tidak dapat menambah antrean: ' + e.message, 'error');
+    }
+}
+
+async function deleteQueue(queueId) {
+    const queue = salesQueues.find(q => q.id === queueId);
+    if (queue && queue.backendId) {
+        await fetch(`/sales/antrian/${queue.backendId}/hapus`, {method: 'POST', keepalive: true});
+        await syncQueuesFromBackend();
+        // Setelah sync, set antrean aktif ke antrean pertama jika ada
+        if (salesQueues.length > 0) {
+            activeQueueId = salesQueues[0].id;
+            await switchQueue(activeQueueId);
+        } else {
+            activeQueueId = null;
+            renderQueueTabs();
+            updateCartDisplay();
+        }
+    }
+}
+
+async function switchQueue(queueId) {
+    activeQueueId = queueId;
+    const queue = salesQueues.find(q => q.id === queueId);
+    if (queue && queue.backendId) {
+        const res = await fetch(`/sales/antrian/${queue.backendId}/ambil`);
+        const data = await res.json();
+        if (data.data_antrian) {
+            queue.cart = JSON.parse(data.data_antrian);
+        } else {
+            queue.cart = [];
+        }
+    }
+    renderQueueTabs();
+    updateCartDisplay();
+}
+
+async function updateQueueCartToBackend(queueId) {
+    const queue = salesQueues.find(q => q.id === queueId);
+    if (!queue) return;
+
+    const payload = {
+        nama_antrian: queue.name,
+        data_antrian: JSON.stringify(queue.cart)
+    };
+
+    try {
+        if (queue.backendId) {
+            // Update queue that already exists in backend
+            await fetch(`/sales/antrian/${queue.backendId}/update`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(payload)
+            });
+        } else {
+            // Fallback: create new queue
+            const res = await fetch('/sales/antrian/tambah', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(payload)
+            });
+            if (res.ok) {
+                const data = await res.json();
+                // Simpan backendId ke queue agar tidak membuat duplikat di masa depan
+                queue.backendId = data.id;
+            }
+        }
+    } catch (err) {
+        console.error('Failed to sync queue to backend:', err);
+    }
+}
+
+let searchTimeout;
+let barcodeBuffer = '';
+let barcodeEventTimeout; 
+const modalKonfirmasiInstance = new bootstrap.Modal(document.getElementById('modalKonfirmasi'));
+
+function generateQueueId() { return 'queue-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9); }
+
+function deepCopyCart(cart) {
+    if (!Array.isArray(cart)) return [];
+    return cart.map(item => ({ ...item })); 
+}
+
+
+function renderQueueTabs() {
+    const tabsContainer = document.getElementById('salesQueueTabs');
+    const activeSaleContentDiv = document.getElementById('activeSaleContent');
+    const noQueueMessageDiv = document.getElementById('noQueueMessage');
+    tabsContainer.innerHTML = '';
+    
+    salesQueues.forEach(queue => {
+        const isActive = queue.id === activeQueueId;
+        // Buat elemen li
+        const li = document.createElement('li');
+        li.className = 'nav-item';
+        li.setAttribute('role', 'presentation');
+
+        // Buat button tab
+        const button = document.createElement('button');
+        button.className = `nav-link ${isActive ? 'active' : ''}`;
+        button.id = `tab-${queue.id}`;
+        button.setAttribute('data-bs-toggle', 'tab');
+        button.setAttribute('data-queue-id', queue.id);
+        button.setAttribute('type', 'button');
+        button.setAttribute('role', 'tab');
+        button.setAttribute('aria-controls', 'sale-content');
+        button.setAttribute('aria-selected', isActive);
+        button.textContent = queue.name;
+
+        // Tambahkan close button jika ada lebih dari 1 antrean
+        if (salesQueues.length > 1) {
+            const closeSpan = document.createElement('span');
+            closeSpan.className = 'badge bg-danger ms-1';
+            closeSpan.style.cssText = 'cursor:pointer; font-size:0.6em; padding: 0.3em 0.5em;';
+            closeSpan.title = 'Hapus Antrean Ini';
+            closeSpan.textContent = '×';
+
+            // Event listener khusus untuk close button
+            closeSpan.addEventListener('click', function(e) {
+                e.stopPropagation();
+                e.preventDefault();
+                deleteQueue(queue.id);
+            });
+
+            button.appendChild(closeSpan);
+        }
+
+        // Event listener untuk switch tab
+        button.addEventListener('click', function(event) {
+            // Jangan switch jika yang diklik adalah close button
+            if (event.target.classList.contains('badge')) {
+                return;
+            }
+            const queueId = event.currentTarget.getAttribute('data-queue-id');
+            if (queueId !== activeQueueId) {
+                switchQueue(queueId);
+            }
+        });
+
+        li.appendChild(button);
+        tabsContainer.appendChild(li);
+    });
+
+    const currentActiveQueueExists = salesQueues.some(q => q.id === activeQueueId);
+    if (activeQueueId && currentActiveQueueExists) {
+        activeSaleContentDiv.style.display = 'flex'; 
+        noQueueMessageDiv.style.display = 'none';
+        const activeQ = salesQueues.find(q => q.id === activeQueueId);
+        if(activeQ) document.getElementById('activeQueueName').textContent = activeQ.name;
+    } else {
+        activeSaleContentDiv.style.display = 'none';
+        noQueueMessageDiv.style.display = 'block';
+        document.getElementById('activeQueueName').textContent = 'Tidak Ada';
+    }
+}
+
+
+function addToCart(id, nama, kode, harga, stok, satuan, hargaGrosir, batasMinimalGrosir) {
+    if (!activeQueueId) { alert("Pilih atau buat antrean terlebih dahulu!"); return; }
+    const activeQ = salesQueues.find(q => q.id === activeQueueId);
+    if (!activeQ) { alert("Antrean aktif tidak valid!"); return; }
+
+    // Stok is the current available stock from DB for this item, not item.stok_awal from cart
+    const itemOriginalStock = parseFloat(stok) || 0; 
+    if (itemOriginalStock <= 0) { alert(`Stok ${nama} habis.`); return; }
+    
+    const existingItem = activeQ.cart.find(item => item.id === id);
+    if (existingItem) {
+        if (existingItem.jumlah < itemOriginalStock) { 
+            existingItem.jumlah++;
+            
+            // Periksa apakah harus menggunakan harga grosir
+            if (hargaGrosir && existingItem.jumlah >= (batasMinimalGrosir || 10)) {
+                existingItem.harga = parseFloat(hargaGrosir);
+                existingItem.tipe_harga = 'grosir';
+            }
+        } else { 
+            alert(`Stok ${nama} tidak mencukupi (tersisa: ${itemOriginalStock}, di keranjang: ${existingItem.jumlah}).`); return; 
+        }
+    } else {
+        // Item baru, gunakan harga normal
+        const hargaItem = parseFloat(harga) || 0;
+        activeQ.cart.push({
+            id, 
+            nama, 
+            kode, 
+            harga: hargaItem, 
+            jumlah: 1, 
+            stok_awal: itemOriginalStock,
+            satuan: satuan || 'Pcs',
+            harga_grosir: hargaGrosir ? parseFloat(hargaGrosir) : null,
+            batas_minimal_grosir: batasMinimalGrosir || 10,
+            tipe_harga: 'eceran' // Default ke eceran
+        });
+    }
+    document.getElementById('searchBarang').value = ''; 
+    document.getElementById('searchResults').innerHTML = ''; 
+    updateCartDisplay(); 
+    updateQueueCartToBackend(activeQueueId); 
+}
+
+function updateCartDisplay() {
+    const cartItemsContainer = document.getElementById('cartItemsContainer');
+    const cartEmptyMessage = document.getElementById('cartEmptyMessage');
+    
+    cartItemsContainer.innerHTML = ''; // Clear previous content
+    cartItemsContainer.appendChild(cartEmptyMessage); // Re-add empty message template
+
+    const activeQ = salesQueues.find(q => q.id === activeQueueId);
+
+    if (!activeQ) { 
+        cartEmptyMessage.style.display = 'block';
+        document.getElementById('cartSummary').style.display = 'none';
+        document.getElementById('btnBayar').disabled = true;
+        // activeQueueName should be handled by renderQueueTabs
+        return;
+    }
+
+    const currentDisplayCart = activeQ.cart; 
+
+    if (currentDisplayCart.length === 0) {
+        cartEmptyMessage.style.display = 'block';
+        document.getElementById('cartSummary').style.display = 'none';
+        document.getElementById('btnBayar').disabled = true;
+    } else {
+        cartEmptyMessage.style.display = 'none';
+        const table = document.createElement('table');
+        table.className = 'table table-sm';
+        table.innerHTML = `<thead><tr><th>Barang</th><th class="text-center">Jumlah</th><th class="text-end">Subtotal</th><th class="text-center">Aksi</th></tr></thead><tbody></tbody>`;
+        const tbody = table.querySelector('tbody');
+        currentDisplayCart.forEach(item => {
+            const itemHarga = parseFloat(item.harga) || 0;
+            const itemJumlah = parseFloat(item.jumlah) || 0;
+            const itemStokAwal = parseFloat(item.stok_awal) || 0;
+            const itemSatuan = item.satuan || 'Pcs';
+            const itemTipeHarga = item.tipe_harga || 'eceran';
+
+            row = tbody.insertRow();
+            row.innerHTML = `
+                <td>
+                    ${item.nama}<br>
+                    <small class="text-muted">Rp ${itemHarga.toLocaleString()}</small>
+                    ${itemTipeHarga === 'grosir' ? '<span class="badge bg-info text-dark ms-1">Grosir</span>' : ''}
+                </td>
+                <td class="text-center align-middle">
+                    <div class="input-group input-group-sm justify-content-center" style="width:110px;">
+                        <button class="btn btn-outline-secondary btn-sm" type="button" onclick="decrementQuantity(${item.id})">-</button>
+                        <input type="number" step="any" class="form-control form-control-sm text-center px-1" value="${itemJumlah}" 
+                               onchange="updateQuantity(${item.id}, this.value)" min="1" max="${itemStokAwal}">
+                        <button class="btn btn-outline-secondary btn-sm" type="button" onclick="incrementQuantity(${item.id})">+</button>
+                    </div>
+                    <small class="text-muted d-block mt-1">${itemSatuan}</small>
+                </td>
+                <td class="text-end align-middle">Rp ${(itemHarga * itemJumlah).toLocaleString()}</td>
+                <td class="text-center align-middle"><button class="btn btn-danger btn-sm" onclick="removeFromCart(${item.id})"><i class="fas fa-trash"></i></button></td>`;
+        });
+        cartItemsContainer.appendChild(table);
+        document.getElementById('cartSummary').style.display = 'block';
+        document.getElementById('btnBayar').disabled = false;
+    }
+    calculateTotal(); // This will use activeQ.cart
+
+    // Persist customerId and paymentMethod for the active queue
+    activeQ.customerId = document.getElementById('pelangganSelect').value;
+    activeQ.paymentMethod = document.getElementById('metodePembayaran').value;
+    // Jangan kirim update ke backend di sini; updateQueueCartToBackend dipanggil hanya pada fungsi yang benar-benar memodifikasi cart/queue.
+}
+
+function incrementQuantity(itemId) {
+    if (!activeQueueId) return;
+    const activeQ = salesQueues.find(q => q.id === activeQueueId);
+    if (!activeQ) return;
+    const item = activeQ.cart.find(i => i.id === itemId);
+
+    if (item) {
+        if (item.jumlah < item.stok_awal) {
+            item.jumlah++; 
+            
+            // Periksa apakah harus menggunakan harga grosir
+            if (item.harga_grosir && item.jumlah >= item.batas_minimal_grosir) {
+                item.harga = item.harga_grosir;
+                item.tipe_harga = 'grosir';
+            }
+            
+            updateCartDisplay(); 
+            updateQueueCartToBackend(activeQueueId);
+        } else {
+            alert(`Stok ${item.nama} tidak mencukupi (tersedia: ${item.stok_awal}).`);
+        }
+    }
+}
+
+function decrementQuantity(itemId) {
+    if (!activeQueueId) return;
+    const activeQ = salesQueues.find(q => q.id === activeQueueId);
+    if (!activeQ) return;
+    const item = activeQ.cart.find(i => i.id === itemId);
+
+    if (item && item.jumlah > 1) { 
+        item.jumlah--; 
+        
+        // Periksa apakah harus kembali ke harga eceran
+        if (item.harga_grosir && item.jumlah < item.batas_minimal_grosir && item.tipe_harga === 'grosir') {
+            const hargaEceran = parseFloat(item.harga_eceran) || 0;
+            if (hargaEceran > 0) {
+                item.harga = hargaEceran;
+                item.tipe_harga = 'eceran';
+            }
+        }
+        
+        updateCartDisplay(); 
+        updateQueueCartToBackend(activeQueueId);
+    }
+    else if (item && item.jumlah === 1) { removeFromCart(itemId); } 
+}
+
+function updateQuantity(itemId, newQuantityStr) {
+    if (!activeQueueId) return;
+    const activeQ = salesQueues.find(q => q.id === activeQueueId);
+    if (!activeQ) return;
+    const item = activeQ.cart.find(i => i.id === itemId);
+    const quantity = parseFloat(newQuantityStr);
+
+    if (item && !isNaN(quantity)) {
+        if (quantity <= 0) {
+            removeFromCart(itemId); 
+        } else if (quantity <= item.stok_awal) {
+            item.jumlah = quantity;
+            
+            // Periksa apakah harus menggunakan harga grosir atau eceran
+            if (item.harga_grosir) {
+                if (quantity >= item.batas_minimal_grosir) {
+                    item.harga = item.harga_grosir;
+                    item.tipe_harga = 'grosir';
+                } else if (item.tipe_harga === 'grosir') {
+                    // Kembali ke harga eceran jika sebelumnya grosir
+                    const hargaEceran = parseFloat(item.harga_eceran) || 0;
+                    if (hargaEceran > 0) {
+                        item.harga = hargaEceran;
+                        item.tipe_harga = 'eceran';
+                    }
+                }
+            }
+            
+            updateCartDisplay();
+            updateQueueCartToBackend(activeQueueId);
+        } else {
+            item.jumlah = item.stok_awal;
+            alert(`Stok ${item.nama} hanya ${item.stok_awal}. Jumlah disesuaikan.`);
+            updateCartDisplay();
+            updateQueueCartToBackend(activeQueueId);
+        }
+    } else if (item) { 
+        updateCartDisplay(); 
+    }
+}
+
+function removeFromCart(itemId) {
+    if (!activeQueueId) return;
+    const activeQ = salesQueues.find(q => q.id === activeQueueId);
+    if (!activeQ) return;
+    
+    activeQ.cart = activeQ.cart.filter(item => item.id !== itemId);
+    updateCartDisplay();
+    updateQueueCartToBackend(activeQueueId);
+}
+
+function calculateTotal() { // Calculates based on the active queue's cart
+    let totalItems = 0, totalHarga = 0;
+    const activeQ = salesQueues.find(q => q.id === activeQueueId);
+    if (activeQ && activeQ.cart) {
+        activeQ.cart.forEach(item => { 
+            const itemJumlah = parseFloat(item.jumlah) || 0;
+            const itemHarga = parseFloat(item.harga) || 0;
+            totalItems += itemJumlah; 
+            totalHarga += itemHarga * itemJumlah; 
+        });
+    }
+    document.getElementById('totalItems').textContent = totalItems;
+    document.getElementById('totalHarga').textContent = 'Rp ' + totalHarga.toLocaleString();
+    return { totalItems, totalHarga };
+}
+
+
+function toggleCashPaymentFields() {
+    const metodePembayaran = document.getElementById('metodePembayaran').value;
+    const cashFields = document.getElementById('cashPaymentFields'); // In confirmation modal
+    const paymentErrorDiv = document.getElementById('paymentError');
+    
+    if (metodePembayaran === 'tunai' && cashFields) { // Check if cashFields exists
+        cashFields.style.display = 'block';
+    } else if (cashFields) {
+        cashFields.style.display = 'none';
+        document.getElementById('jumlahBayarInput').value = '';
+        document.getElementById('kembalianDisplay').value = 'Rp 0';
+        if (paymentErrorDiv) paymentErrorDiv.style.display = 'none';
+    }
+    // Also update active queue's payment method if switching on main page
+     const activeQ = salesQueues.find(q => q.id === activeQueueId);
+    if (activeQ) {
+        activeQ.paymentMethod = metodePembayaran;
+        updateQueueCartToBackend(activeQueueId);
+    }
+}
+
+function calculateChange() {
+    const totalHargaStr = document.getElementById('konfirmasiTotalHarga').textContent.replace('Rp ', '').replace(/\./g, '');
+    const totalHarga = parseFloat(totalHargaStr.replace(/,/g, '')) || 0;
+    const jumlahBayar = parseFloat(document.getElementById('jumlahBayarInput').value) || 0;
+    const kembalianDisplay = document.getElementById('kembalianDisplay');
+    const paymentErrorDiv = document.getElementById('paymentError');
+    const btnKonfirmasiFinal = document.getElementById('btnKonfirmasiFinal');
+
+    if (jumlahBayar < totalHarga) {
+        kembalianDisplay.value = 'Rp 0'; // Or some error indication
+        if (paymentErrorDiv) {
+            paymentErrorDiv.textContent = 'Jumlah bayar kurang dari total transaksi.';
+            paymentErrorDiv.style.display = 'block';
+        }
+        btnKonfirmasiFinal.disabled = true;
+    } else {
+        const kembalian = jumlahBayar - totalHarga;
+        kembalianDisplay.value = 'Rp ' + kembalian.toLocaleString();
+        if (paymentErrorDiv) paymentErrorDiv.style.display = 'none';
+        btnKonfirmasiFinal.disabled = false;
+    }
+}
+
+
+function prosesPembayaranCurrentQueue() {
+    if (!activeQueueId) { alert("Tidak ada antrean aktif."); return; }
+    const activeQ = salesQueues.find(q => q.id === activeQueueId);
+    if (!activeQ || activeQ.cart.length === 0) { alert("Antrean aktif kosong atau tidak valid."); return; }
+
+    const { totalHarga } = calculateTotal(); // Calculates from activeQ.cart
+    const pelangganSelect = document.getElementById('pelangganSelect');
+    const selectedPelangganText = pelangganSelect.value ? pelangganSelect.options[pelangganSelect.selectedIndex].text : 'Umum';
+    const metodePembayaran = document.getElementById('metodePembayaran').value; // Get from main page select
+
+    document.getElementById('konfirmasiAntreanNama').textContent = activeQ.name;
+    document.getElementById('konfirmasiTotalHarga').textContent = 'Rp ' + totalHarga.toLocaleString();
+    document.getElementById('konfirmasiPelanggan').textContent = selectedPelangganText;
+    document.getElementById('konfirmasiMetodeText').textContent = metodePembayaran.charAt(0).toUpperCase() + metodePembayaran.slice(1);
+    
+    // Call toggle for the modal based on the *main page's* selected method
+    const cashFieldsModal = document.getElementById('cashPaymentFields');
+    const jumlahBayarInputModal = document.getElementById('jumlahBayarInput');
+    const kembalianDisplayModal = document.getElementById('kembalianDisplay');
+    const paymentErrorDivModal = document.getElementById('paymentError');
+    const btnKonfirmasiFinal = document.getElementById('btnKonfirmasiFinal');
+
+
+    if (metodePembayaran === 'tunai') {
+        cashFieldsModal.style.display = 'block';
+    } else {
+        cashFieldsModal.style.display = 'none';
+        btnKonfirmasiFinal.disabled = false;
+    }
+    
+    modalKonfirmasiInstance.show();
+}
+
+function konfirmasiDanBayarCurrentQueue() {
+    if (!activeQueueId) { alert("Tidak ada antrean aktif untuk dibayar."); return; }
+    
+    const activeQ = salesQueues.find(q => q.id === activeQueueId);
+    if (!activeQ) { alert("Antrean aktif tidak ditemukan."); return; }
+
+    const { totalHarga } = calculateTotal(); 
+    const pelangganId = document.getElementById('pelangganSelect').value; // From main page
+    const metodePembayaran = document.getElementById('metodePembayaran').value; // From main page
+    
+    let jumlahBayarTunai = null;
+    if (metodePembayaran === 'tunai') {
+        jumlahBayarTunai = parseFloat(document.getElementById('jumlahBayarInput').value) || 0;
+        if (jumlahBayarTunai < totalHarga) {
+            alert("Jumlah bayar kurang dari total harga.");
+            document.getElementById('jumlahBayarInput').focus();
+            return; // Don't proceed
+        }
+    }
+    
+    modalKonfirmasiInstance.hide(); // Hide modal before fetch
+
+    const saleData = {
+        pelanggan_id: pelangganId || null, 
+        total_harga: totalHarga,
+        metode_pembayaran: metodePembayaran,
+        jumlah_bayar_tunai: metodePembayaran === 'tunai' ? jumlahBayarTunai : null,
+        items: activeQ.cart.map(item => ({ 
+            barang_id: item.id, 
+            jumlah: parseFloat(item.jumlah) || 0, 
+            harga_satuan: parseFloat(item.harga) || 0, 
+            subtotal: (parseFloat(item.harga) || 0) * (parseFloat(item.jumlah) || 0),
+            tipe_harga: item.tipe_harga || 'eceran'
+        }))
+    };
+
+    const btnBayarEl = document.getElementById('btnBayar'); // Main page button
+    btnBayarEl.disabled = true;
+    btnBayarEl.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Memproses...';
+
+    fetch('/sales/proses_penjualan', { 
+        method: 'POST', 
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' }, 
+        body: JSON.stringify(saleData) 
+    })
+    .then(response => {
+        if (!response.ok) {
+            return response.json().then(errData => {
+                throw new Error(errData.message || `Server error: ${response.status}`);
+            }).catch(() => {
+                throw new Error(`Server error: ${response.status} ${response.statusText}`);
+            });
+        }
+        return response.json();
+    })
+    .then(data => {
+        if (data.success) {
+            let successMessage = `Transaksi ${data.no_transaksi} untuk ${activeQ.name} berhasil!`;
+            if (data.kembalian_tunai !== null && data.kembalian_tunai !== undefined) {
+                successMessage += `\nKembalian: Rp ${parseFloat(data.kembalian_tunai).toLocaleString()}`;
+            }
+            alert(successMessage);
+
+            const finishedQueueId = activeQueueId; 
+            
+            // Hapus dari backend terlebih dahulu agar tidak tersisa di DB
+            if (finishedQueueId) {
+                const backendId = String(finishedQueueId).replace(/^antrian-/, ''); // remove prefix if any
+                if (backendId && !isNaN(backendId)) {
+                    fetch(`/sales/antrian/${backendId}/hapus`, {method:'POST', keepalive: true}).catch(console.error);
+                }
+            }
+
+            salesQueues = salesQueues.filter(q => q.id !== finishedQueueId);
+            
+            if (salesQueues.length > 0) {
+                activeQueueId = salesQueues[0].id; 
+                switchQueue(activeQueueId); // This will also save and render
+            } else {
+                activeQueueId = null; 
+                addQueue(); // This will create a new queue and make it active
+            }
+            //window.open(`/sales/struk/${data.penjualan_id}?auto_print=1`, '_blank');
+            location.href = `/sales/struk/${data.penjualan_id}?auto_print=1`;
+        } else { 
+            alert(`Gagal memproses transaksi untuk ${activeQ.name}: ${data.message}`); 
+        }
+    })
+    .catch(error => { 
+        console.error('Error during payment processing:', error); 
+        alert(`Terjadi kesalahan saat memproses pembayaran: ${error.message}. Silakan cek konsol untuk detail.`); 
+    })
+    .finally(() => {
+        const currentActiveQAfterPayment = salesQueues.find(q => q.id === activeQueueId);
+        btnBayarEl.disabled = (!currentActiveQAfterPayment || currentActiveQAfterPayment.cart.length === 0);
+        btnBayarEl.innerHTML = '<i class="fas fa-credit-card me-2"></i>Proses Pembayaran (F2)';
+    });
+}
+
+function resetCurrentQueueConfirm() {
+    if (!activeQueueId) { alert("Tidak ada antrean aktif untuk direset."); return; }
+    const activeQ = salesQueues.find(q => q.id === activeQueueId);
+    if (!activeQ) { alert("Antrean aktif tidak valid."); return;}
+
+    if (confirm("Anda yakin ingin mereset antrean ini? Semua item di keranjang antrean ini akan dihapus.")) {
+        activeQ.cart = []; 
+        // Optionally reset customer and payment method for the queue object
+        // activeQ.customerId = '';
+        // activeQ.paymentMethod = 'tunai'; 
+        // document.getElementById('pelangganSelect').value = activeQ.customerId;
+        // document.getElementById('metodePembayaran').value = activeQ.paymentMethod;
+        updateCartDisplay(); 
+        updateQueueCartToBackend(activeQueueId);
+    }
+}
+
+// Toast notification functions
+function showToast(title, message, type = 'success') {
+    const toast = document.getElementById('liveToast');
+    const toastTitle = document.getElementById('toastTitle');
+    const toastMessage = document.getElementById('toastMessage');
+    
+    // Set toast content
+    toastTitle.textContent = title;
+    toastMessage.textContent = message;
+    
+    // Set toast type/color
+    toast.classList.remove('bg-success', 'bg-danger', 'bg-warning', 'bg-info', 'text-white');
+    if (type === 'success') {
+        toast.classList.add('bg-success', 'text-white');
+    } else if (type === 'error') {
+        toast.classList.add('bg-danger', 'text-white');
+    } else if (type === 'warning') {
+        toast.classList.add('bg-warning');
+    } else if (type === 'info') {
+        toast.classList.add('bg-info');
+    }
+    
+    // Show the toast
+    const bsToast = new bootstrap.Toast(toast);
+    bsToast.show();
+}
+
+// Keyboard shortcuts
+function handleShortcut(e) {
+    // Hindari jika dalam form element atau dialog terbuka
+    if (document.activeElement.tagName === 'INPUT' || 
+        document.activeElement.tagName === 'TEXTAREA' || 
+        document.activeElement.tagName === 'SELECT' ||
+        document.querySelector('.modal.show')) {
+        return;
+    }
+    
+    if (e.key === 'F1') {
+        e.preventDefault();
+        document.getElementById('searchBarang').focus();
+    } else if (e.key === 'F2') {
+        e.preventDefault();
+        if (!document.getElementById('btnBayar').disabled) {
+            prosesPembayaranCurrentQueue();
+        }
+    } else if (e.key === 'F3') {
+        e.preventDefault();
+        resetCurrentQueueConfirm();
+    } else if (e.key === 'F4') {
+        e.preventDefault();
+        addQueue();
+    }
+}
+
+// Function to search for products by exact barcode
+function searchBarangByExactBarcode(barcode) {
+    if (!activeQueueId) return;
+    const searchResultsDiv = document.getElementById('searchResults');
+    
+    fetch(`/sales/api/cari_barang?q=${encodeURIComponent(barcode)}&limit=1`)
+    .then(response => response.json())
+    .then(data => {
+        if (data.length > 0) {
+            const exactMatch = data.find(item => item.kode_barang === barcode);
+            if (exactMatch) {
+                // Found exact match by barcode - add directly to cart
+                const barang = exactMatch;
+                addToCart(
+                    barang.id, 
+                    barang.nama_barang, 
+                    barang.kode_barang, 
+                    barang.harga_jual, 
+                    barang.stok, 
+                    barang.satuan || 'Pcs',
+                    barang.harga_grosir,
+                    barang.batas_minimal_grosir || 10
+                );
+                showToast('Sukses', `Barang "${barang.nama_barang}" berhasil ditambahkan ke keranjang`, 'success');
+            } else {
+                // Show search results
+                searchBarangApiCall();
+            }
+        } else {
+            // No results found
+            searchResultsDiv.innerHTML = '<div class="list-group-item text-muted">Barang tidak ditemukan.</div>';
+            showToast('Peringatan', 'Barang Tidak Ditemukan', 'error');
+        }
+    })
+    .catch(error => {
+        console.error("Error searching for barcode:", error);
+        searchResultsDiv.innerHTML = '<div class="list-group-item text-danger">Terjadi kesalahan saat mencari barang.</div>';
+    });
+}
+
+document.getElementById('addQueueBtn').addEventListener('click', addQueue);
+document.getElementById('metodePembayaran').addEventListener('change', toggleCashPaymentFields);
+
+
+document.addEventListener('DOMContentLoaded', async function() { 
+    await syncQueuesFromBackend(); // Load antrean kasir dari backend saat page load
+    if (salesQueues.length > 0) {
+        activeQueueId = salesQueues[0].id;
+        await switchQueue(activeQueueId);
+    } else {
+        activeQueueId = null;
+        renderQueueTabs();
+        updateCartDisplay();
+    }
+    loadQuickAddItems();
+    toggleCashPaymentFields(); // Initial call for the main page select
+    
+    // Initialize toast
+    document.querySelectorAll('.toast').forEach(toastEl => {
+        new bootstrap.Toast(toastEl, {
+            delay: 3000
+        });
+    });
+    
+    // Register keyboard shortcuts
+    document.addEventListener('keydown', handleShortcut);
+    
+    // Barcode scanning detection
+    document.addEventListener('keypress', function(e) {
+        if (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA' || document.activeElement.tagName === 'SELECT') return; 
+        if (!activeQueueId) return; 
+        clearTimeout(barcodeEventTimeout);
+        if (e.key === 'Enter') {
+            if (barcodeBuffer.length > 3) { 
+                document.getElementById('searchBarang').value = barcodeBuffer; 
+                searchBarangByExactBarcode(barcodeBuffer); // Use exact barcode search
+            }
+            barcodeBuffer = ''; 
+            e.preventDefault(); 
+        } else { 
+            barcodeBuffer += e.key; 
+        }
+        barcodeEventTimeout = setTimeout(() => { barcodeBuffer = ''; }, 250);
+    });
+
+    
+    // Enhanced Enter key handling in search field
+    document.getElementById('searchBarang').addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            const query = this.value.trim();
+            if (query.length > 0) {
+                searchBarangByExactBarcode(query);
+            }
+        }
+    });
+
+    document.getElementById('searchBarang').addEventListener('input', function() {
+        clearTimeout(searchTimeout);
+        searchTimeout = setTimeout(() => { searchBarangApiCall(); }, 300);
+    });
+});
+
+function searchBarangManual() { searchBarangApiCall(); }
+
+function searchBarangApiCall() {
+    if (!activeQueueId) return; 
+    const query = document.getElementById('searchBarang').value;
+    const searchResultsDiv = document.getElementById('searchResults');
+    if (query.length < 1 && query !== "") { searchResultsDiv.innerHTML = ''; return; } 
+    
+    fetch(`/sales/api/cari_barang?q=${encodeURIComponent(query)}&limit=5`)
+    .then(response => response.json())
+    .then(data => {
+        let html = '';
+        if (data.length > 0) {
+            data.forEach(barang => {
+                const hargaJual = parseFloat(barang.harga_jual) || 0;
+                const hargaGrosir = parseFloat(barang.harga_grosir) || 0;
+                const stok = parseFloat(barang.stok) || 0;
+                const satuan = barang.satuan || 'Pcs';
+                const batasMinimalGrosir = parseFloat(barang.batas_minimal_grosir) || 10;
+
+                let expiryWarning = '';
+                 if (barang.tanggal_kadaluarsa) {
+                    const today = new Date(); today.setHours(0,0,0,0);
+                    const expiryDate = new Date(barang.tanggal_kadaluarsa);
+                    const diffTime = expiryDate - today;
+                    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                    if (diffDays < 0) expiryWarning = `<span class="badge bg-danger ms-1" style="font-size: 0.7em;">Exp</span>`;
+                    else if (diffDays <= 30) expiryWarning = `<span class="badge bg-warning text-dark ms-1" style="font-size: 0.7em;">Exp ${diffDays}d</span>`;
+                }
+                
+                // Tambahkan info harga grosir dan satuan
+                let hargaDisplay = `Rp ${hargaJual.toLocaleString()}/${satuan}`;
+                if (hargaGrosir > 0) {
+                    hargaDisplay += ` | Grosir: Rp ${hargaGrosir.toLocaleString()} (min. ${batasMinimalGrosir})`;
+                }
+                
+                html += `
+                    <a href="#" class="list-group-item list-group-item-action ${stok <= 0 ? 'disabled text-muted' : ''}" 
+                       onclick="event.preventDefault(); if(${stok > 0}) { addToCart(${barang.id}, '${barang.nama_barang.replace(/'/g, "\\'")}', '${barang.kode_barang}', ${hargaJual}, ${stok}, '${satuan}', ${hargaGrosir}, ${batasMinimalGrosir}); }">
+                        <div class="d-flex w-100 justify-content-between">
+                            <h6 class="mb-1">${barang.nama_barang} (${barang.kode_barang}) ${expiryWarning}</h6>
+                            <small class="text-success fw-bold">Rp ${hargaJual.toLocaleString()}</small>
+                        </div>
+                        <small>Stok: ${stok} ${satuan}</small>
+                        ${hargaGrosir > 0 ? `<small class="d-block">Grosir: Rp ${hargaGrosir.toLocaleString()} (min. ${batasMinimalGrosir} ${satuan})</small>` : ''}
+                        ${stok <= 0 ? '<span class="badge bg-secondary float-end">Habis</span>' : ''}
+                    </a>`;
+            });
+        } else { 
+            html = '<div class="list-group-item text-muted">Barang tidak ditemukan.</div>';
+            showToast('Peringatan', 'Barang Tidak Ditemukan', 'error');
+        }
+        searchResultsDiv.innerHTML = html;
+    })
+    .catch(error => { console.error("Error loading search results:", error); searchResultsDiv.innerHTML = '<div class="list-group-item text-danger">Terjadi kesalahan saat mencari barang.</div>';});
+}
+
+function loadQuickAddItems() {
+    const quickAddDiv = document.getElementById('quickAddItems');
+    fetch(`/sales/api/cari_barang?limit=4&sort=popular`) 
+    .then(response => response.json())
+    .then(data => {
+        if (data.length > 0) {
+            let html = '<ul class="list-group list-group-flush">';
+            data.forEach(barang => {
+                const hargaJual = parseFloat(barang.harga_jual) || 0;
+                const hargaGrosir = parseFloat(barang.harga_grosir) || 0;
+                const stok = parseFloat(barang.stok) || 0;
+                const satuan = barang.satuan || 'Pcs';
+                const batasMinimalGrosir = parseFloat(barang.batas_minimal_grosir) || 10;
+
+                let expiryWarning = '';
+                 if (barang.tanggal_kadaluarsa) {
+                    const today = new Date(); today.setHours(0,0,0,0);
+                    const expiryDate = new Date(barang.tanggal_kadaluarsa);
+                    const diffTime = expiryDate - today;
+                    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                    if (diffDays < 0) expiryWarning = `<span class="badge bg-danger ms-1" style="font-size: 0.7em;">Exp</span>`;
+                    else if (diffDays <= 30) expiryWarning = `<span class="badge bg-warning text-dark ms-1" style="font-size: 0.7em;">Exp ${diffDays}d</span>`;
+                }
+                
+                // Tambahkan info harga grosir dan satuan
+                let hargaDisplay = `Rp ${hargaJual.toLocaleString()}/${satuan}`;
+                if (hargaGrosir > 0) {
+                    hargaDisplay += ` | Grosir: Rp ${hargaGrosir.toLocaleString()} (min. ${batasMinimalGrosir})`;
+                }
+                
+                html += `
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        <div class="flex-grow-1 ${stok <= 0 ? 'text-muted' : ''}" style="cursor:${stok > 0 ? 'pointer': 'default'};" 
+                             onclick="if(${stok > 0}) { addToCart(${barang.id}, '${barang.nama_barang.replace(/'/g, "\\'")}', '${barang.kode_barang}', ${hargaJual}, ${stok}, '${satuan}', ${hargaGrosir}, ${batasMinimalGrosir}); }">
+                            ${barang.nama_barang} ${expiryWarning}
+                            <small class="d-block">${hargaDisplay}</small>
+                        </div>
+                        <button class="btn btn-sm btn-outline-success ms-2" 
+                                onclick="addToCart(${barang.id}, '${barang.nama_barang.replace(/'/g, "\\'")}', '${barang.kode_barang}', ${hargaJual}, ${stok}, '${satuan}', ${hargaGrosir}, ${batasMinimalGrosir})"
+                                ${stok <= 0 ? 'disabled' : ''} title="Tambah ke Keranjang">
+                            <i class="fas fa-plus"></i>
+                        </button>
+                    </li>`;
+            });
+            html += '</ul>'; quickAddDiv.innerHTML = html;
+        } else { quickAddDiv.innerHTML = '<p class="text-muted p-3"><small>Tidak ada barang.</small></p>'; }
+    })
+    .catch(error => { console.error("Error loading quick add items:", error); quickAddDiv.innerHTML = '<p class="text-danger p-3"><small>Gagal memuat.</small></p>';});
+}
+</script>
+{% endblock %}
