@@ -2,6 +2,8 @@ from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime, date
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_login import UserMixin
+import fcntl
+import os
 
 db = SQLAlchemy()
 
@@ -238,58 +240,71 @@ class DetailPenjualan(db.Model):
         }
 
 def init_db_with_app_context(app_instance):
-    # db.init_app(app_instance) # This is already called in app.py
-    
-    with app_instance.app_context():
-        # db.create_all() # This is already called in app.py's initialize_database
-        
-        # No default categories or units will be created - users will manage their own
-        # Categories and units will be created by users through the UI
-        if not User.query.filter_by(username='admin').first():
-            admin = User(username='admin', is_admin=True)
-            admin.set_password('admin123')
-            db.session.add(admin)
-        
-        if Supplier.query.count() == 0:
-            db.session.add(Supplier(nama='Default Supplier', no_hp='-', alamat='-'))
-        
-        if Barang.query.count() == 0:
-            sample_barang = [
-                Barang(kode_barang='SKP001', nama_barang='Sekop Kecil', kategori='Alat Taman', stok=25, harga_pokok=25000, harga_jual=35000, harga_grosir=30000, satuan='Pcs', tanggal_kadaluarsa=date(2025, 12, 31)),
-                Barang(kode_barang='BJH001', nama_barang='Benih Jagung Hibrida', kategori='Benih', stok=50, harga_pokok=18000, harga_jual=25000, harga_grosir=22000, satuan='Pack', tanggal_kadaluarsa=date(2024, 8, 15)),
-                Barang(kode_barang='PPK001', nama_barang='Pupuk NPK 1kg', kategori='Pupuk', stok=100, harga_pokok=10000, harga_jual=15000, harga_grosir=13000, satuan='Kg', tanggal_kadaluarsa=date(2024, 5, 1)), 
-                Barang(kode_barang='SPR001', nama_barang='Sprayer Elektrik 16L', kategori='Alat Semprot', stok=10, harga_pokok=250000, harga_jual=350000, harga_grosir=325000, satuan='Unit'),
-                Barang(kode_barang='IRG001', nama_barang='Selang Irigasi 10m', kategori='Irigasi', stok=30, harga_pokok=50000, harga_jual=75000, harga_grosir=65000, satuan='Roll'),
-            ]
-            for barang_item in sample_barang:
-                db.session.add(barang_item)
-        
-        if Pelanggan.query.count() == 0:
-            # Create "Umum" customer first if it's critical
-            umum_pelanggan = Pelanggan.query.filter_by(nama='Umum').first()
-            if not umum_pelanggan:
-                 umum_pelanggan = Pelanggan(nama='Umum', no_hp='-', alamat='-')
-                 db.session.add(umum_pelanggan)
-
-            sample_pelanggan = [
-                Pelanggan(nama='Pak Tani', no_hp='081234567890', alamat='Desa Sukamaju RT 01/01'),
-                Pelanggan(nama='Ibu Sri', no_hp='085678901234', alamat='Komplek Agropolitan A1'),
-            ]
-            for pelanggan_item in sample_pelanggan:
-                 # Avoid adding "Umum" again if it was handled above
-                if pelanggan_item.nama.lower() != 'umum':
-                    db.session.add(pelanggan_item)
-        
-        # Ensure there is always one store profile row
-        if not StoreProfile.query.get(1):
-            db.session.add(StoreProfile(id=1))
-        
+    from sqlalchemy import inspect as sqlalchemy_inspect
+    lockfile_path = '/tmp/poseidon_db_init.lock'
+    with open(lockfile_path, 'w') as lockfile:
+        fcntl.flock(lockfile, fcntl.LOCK_EX)
         try:
-            db.session.commit()
-            print("Database initialized/checked for sample data using models.py!")
-        except Exception as e:
-            db.session.rollback()
-            print(f"Error during database initialization with models.py: {e}")
+            with app_instance.app_context():
+                inspector = sqlalchemy_inspect(db.engine)
+                required_tables = ['barang', 'pelanggan', 'penjualan', 'detail_penjualan', 'user', 'penjualan_antrian', 'store_profile', 'supplier', 'kategori', 'satuan']
+                existing_tables = inspector.get_table_names()
+                missing_tables = [t for t in required_tables if t not in existing_tables]
+                if missing_tables:
+                    print(f"Tabel berikut belum ada: {missing_tables}, menjalankan db.create_all()...")
+                    db.create_all()
+                else:
+                    print("Semua tabel sudah ada.")
+
+                # User admin
+                if not User.query.filter_by(username='admin').first():
+                    admin = User(username='admin', is_admin=True)
+                    admin.set_password('admin123')
+                    db.session.add(admin)
+
+                # Supplier default
+                if not Supplier.query.filter_by(nama='Default Supplier').first():
+                    db.session.add(Supplier(nama='Default Supplier', no_hp='-', alamat='-'))
+
+                # Barang sample
+                sample_barang = [
+                    dict(kode_barang='SKP001', nama_barang='Sekop Kecil', kategori='Alat Taman', stok=25, harga_pokok=25000, harga_jual=35000, harga_grosir=30000, satuan='Pcs', tanggal_kadaluarsa=date(2025, 12, 31)),
+                    dict(kode_barang='BJH001', nama_barang='Benih Jagung Hibrida', kategori='Benih', stok=50, harga_pokok=18000, harga_jual=25000, harga_grosir=22000, satuan='Pack', tanggal_kadaluarsa=date(2024, 8, 15)),
+                    dict(kode_barang='PPK001', nama_barang='Pupuk NPK 1kg', kategori='Pupuk', stok=100, harga_pokok=10000, harga_jual=15000, harga_grosir=13000, satuan='Kg', tanggal_kadaluarsa=date(2024, 5, 1)),
+                    dict(kode_barang='SPR001', nama_barang='Sprayer Elektrik 16L', kategori='Alat Semprot', stok=10, harga_pokok=250000, harga_jual=350000, harga_grosir=325000, satuan='Unit'),
+                    dict(kode_barang='IRG001', nama_barang='Selang Irigasi 10m', kategori='Irigasi', stok=30, harga_pokok=50000, harga_jual=75000, harga_grosir=65000, satuan='Roll'),
+                ]
+                for barang in sample_barang:
+                    if not Barang.query.filter_by(kode_barang=barang['kode_barang']).first():
+                        db.session.add(Barang(**barang))
+
+                # Pelanggan sample
+                if not Pelanggan.query.filter_by(nama='Umum').first():
+                    db.session.add(Pelanggan(nama='Umum', no_hp='-', alamat='-'))
+                sample_pelanggan = [
+                    dict(nama='Pak Tani', no_hp='081234567890', alamat='Desa Sukamaju RT 01/01'),
+                    dict(nama='Ibu Sri', no_hp='085678901234', alamat='Komplek Agropolitan A1'),
+                ]
+                for pelanggan in sample_pelanggan:
+                    if pelanggan['nama'].lower() != 'umum' and not Pelanggan.query.filter_by(nama=pelanggan['nama']).first():
+                        db.session.add(Pelanggan(**pelanggan))
+
+                # Store profile
+                if not StoreProfile.query.get(1):
+                    db.session.add(StoreProfile(id=1))
+
+                try:
+                    db.session.commit()
+                    print("Database initialized/checked for sample data using models.py!")
+                except Exception as e:
+                    db.session.rollback()
+                    if 'UNIQUE constraint failed: user.username' in str(e):
+                        print("User 'admin' sudah ada, dilewati (race condition handled).")
+                    else:
+                        print(f"Error during database initialization with models.py: {e}")
+        finally:
+            fcntl.flock(lockfile, fcntl.LOCK_UN)
+
 
 def generate_no_transaksi():
     now = datetime.now()

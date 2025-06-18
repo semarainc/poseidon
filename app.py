@@ -76,24 +76,10 @@ def setup_misc_routes(app):
             'favicon.ico', mimetype='image/vnd.microsoft.icon')
 
 def initialize_database(app):
-    """Membuat semua tabel database jika belum ada dan mengisi data sample jika perlu."""
+    """Inisialisasi database dan data sample secara atomic dan race-condition safe."""
+    from models.models import init_db_with_app_context
     with app.app_context():
-        inspector = sqlalchemy_inspect(db.engine)
-        required_tables = ['barang', 'pelanggan', 'penjualan', 'detail_penjualan', 'user', 'penjualan_antrian', 'store_profile', 'supplier', 'kategori', 'satuan']
-        existing_tables = inspector.get_table_names()
-        
-        tables_exist = all(table_name in existing_tables for table_name in required_tables)
-
-        if not tables_exist:
-            app.logger.info("One or more tables not found. Creating all tables...")
-            db.create_all()
-            app.logger.info("Tables created. Attempting to seed sample data...")
-            init_db_with_app_context(app) 
-        else:
-            app.logger.info("Database tables already exist.")
-            if Barang.query.count() == 0 and Pelanggan.query.count() == 0:
-                app.logger.info("Main tables (Barang, Pelanggan) are empty. Attempting to seed sample data...")
-                init_db_with_app_context(app)
+        init_db_with_app_context(app)
 
 def register_blueprints(app):
     """Register all blueprints"""
