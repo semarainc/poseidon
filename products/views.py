@@ -1,10 +1,15 @@
+import os
+import uuid
+import io
+import traceback
+
 from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify, current_app
 from datetime import datetime
 from sqlalchemy import func, or_, inspect as sqlalchemy_inspect
-import os
-import uuid
+
+from openpyxl import Workbook
 from werkzeug.utils import secure_filename
-import traceback
+
 # Import dari paket models (menggunakan models/models.py)
 from models.models import db, Barang, DetailPenjualan, Kategori, Satuan, Supplier
 from flask_login import login_required, current_user
@@ -15,6 +20,136 @@ ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
 def allowed_file(filename):
     return '.' in filename and \
            filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+# --- BULK UPLOAD BARANG DARI EXCEL ---
+@products_blueprint.route('/bulk_upload', methods=['GET'])
+@login_required
+def bulk_upload_barang():
+    return render_template('barang_bulk_upload.html')
+
+@products_blueprint.route('/download_template', methods=['GET'])
+@login_required
+def download_template():
+    output = io.BytesIO()
+    wb = Workbook()
+    ws = wb.active
+    ws.title = 'Barang'
+    ws.append(['kode_barang', 'nama_barang', 'kategori', 'stok', 'harga_pokok', 'harga_jual', 'harga_grosir', 'satuan', 'supplier', 'tanggal_kadaluarsa'])
+    ws.append(['SKP001', 'Sekop Kecil', 'Alat Taman', 25, 25000, 35000, 30000, 'Pcs', 'CV Taman Subur', '2025-12-31'])
+    wb.save(output)
+    output.seek(0)
+    from flask import send_file
+    return send_file(output, download_name='template_barang.xlsx', as_attachment=True)
+
+@products_blueprint.route('/preview_bulk_upload', methods=['POST'])
+@login_required
+def preview_bulk_upload():
+    import openpyxl
+    file = request.files.get('excelFile')
+    if not file:
+        return jsonify({'success': False, 'message': 'File tidak ditemukan'}), 400
+    try:
+        wb = openpyxl.load_workbook(file, data_only=True)
+        ws = wb.active
+        rows = list(ws.iter_rows(values_only=True))
+        headers = [str(h).strip() for h in rows[0]]
+        data = []
+        for row in rows[1:]:
+            item = dict(zip(headers, row))
+            data.append(item)
+        return jsonify({'success': True, 'data': data, 'headers': headers})
+    except Exception as e:
+        return jsonify({'success': False, 'message': f'Gagal parsing file: {str(e)}'}), 400
+
+@products_blueprint.route('/apply_bulk_upload', methods=['POST'])
+@login_required
+def apply_bulk_upload():
+    import datetime
+    items = request.json.get('items', [])
+    if not items:
+        return jsonify({'success': False, 'message': 'Data barang kosong'}), 400
+    inserted, updated, failed = 0, 0, 0
+    for item in items:
+        # Kategori
+        kategori = (item.get('kategori') or '').strip()
+        if kategori:
+            kat_obj = Kategori.query.filter(func.lower(Kategori.nama) == kategori.lower()).first()
+            if not kat_obj:
+                kat_obj = Kategori(nama=kategori)
+                db.session.add(kat_obj)
+                db.session.commit()
+        # Satuan
+        satuan = (item.get('satuan') or '').strip()
+        if satuan:
+            sat_obj = Satuan.query.filter(func.lower(Satuan.nama) == satuan.lower()).first()
+            if not sat_obj:
+                sat_obj = Satuan(nama=satuan)
+                db.session.add(sat_obj)
+                db.session.commit()
+        # Supplier
+        supplier_nama = (item.get('supplier') or '').strip()
+        supplier_obj = None
+        supplier_id = None
+        if supplier_nama:
+            supplier_obj = Supplier.query.filter(func.lower(Supplier.nama) == supplier_nama.lower()).first()
+            if not supplier_obj:
+                try:
+                    supplier_obj = Supplier(nama=supplier_nama)
+                    db.session.add(supplier_obj)
+                    db.session.flush()  # flush agar dapat id tanpa commit dulu
+                except Exception:
+                    db.session.rollback()
+                    # Cegah race condition: cek ulang (ada kemungkinan supplier ditambah oleh proses lain)
+                    supplier_obj = Supplier.query.filter(func.lower(Supplier.nama) == supplier_nama.lower()).first()
+                    if not supplier_obj:
+                        failed += 1
+                        continue
+            supplier_id = supplier_obj.id
+        # Barang
+        try:
+            kode_barang = (item.get('kode_barang') or '').strip()
+            if not kode_barang:
+                failed += 1
+                continue
+            barang = Barang.query.filter_by(kode_barang=kode_barang).first()
+            tanggal_kadaluarsa = item.get('tanggal_kadaluarsa')
+            if tanggal_kadaluarsa and isinstance(tanggal_kadaluarsa, str):
+                try:
+                    tanggal_kadaluarsa = datetime.datetime.strptime(tanggal_kadaluarsa, '%Y-%m-%d').date()
+                except Exception:
+                    tanggal_kadaluarsa = None
+            if not barang:
+                barang = Barang(
+                    kode_barang=kode_barang,
+                    nama_barang=item.get('nama_barang'),
+                    kategori=kategori,
+                    stok=float(item.get('stok') or 0),
+                    harga_pokok=float(item.get('harga_pokok') or 0),
+                    harga_jual=float(item.get('harga_jual') or 0),
+                    harga_grosir=float(item.get('harga_grosir') or 0),
+                    satuan=satuan,
+                    tanggal_kadaluarsa=tanggal_kadaluarsa,
+                    supplier_id=supplier_id
+                )
+                db.session.add(barang)
+                inserted += 1
+            else:
+                # Update data
+                barang.nama_barang = item.get('nama_barang')
+                barang.kategori = kategori
+                barang.stok = float(item.get('stok') or 0)
+                barang.harga_pokok = float(item.get('harga_pokok') or 0)
+                barang.harga_jual = float(item.get('harga_jual') or 0)
+                barang.harga_grosir = float(item.get('harga_grosir') or 0)
+                barang.satuan = satuan
+                barang.tanggal_kadaluarsa = tanggal_kadaluarsa
+                barang.supplier_id = supplier_id
+                updated += 1
+            db.session.commit()
+        except Exception as e:
+            db.session.rollback()
+            failed += 1
+    return jsonify({'success': True, 'inserted': inserted, 'updated': updated, 'failed': failed})
 
 # --- MANAJEMEN BARANG ---
 @products_blueprint.route('/', strict_slashes=False)

@@ -1,0 +1,74 @@
+{% extends 'base.html' %}
+{% block title %}Upload Barang Bulk - POSEIDON{% endblock %}
+{% block head %}
+<link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/dataTables.bootstrap5.min.css">
+<link rel="stylesheet" href="https://cdn.datatables.net/responsive/2.5.0/css/responsive.bootstrap5.min.css">
+<link rel="stylesheet" href="{{ url_for('products.static', filename='css/bulk_upload.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="row justify-content-center">
+        <div class="col-xl-11 col-lg-12 col-md-12">
+            <div class="card shadow-sm border-0 mb-4">
+                <div class="card-body p-4">
+                    <h2 class="mb-4 fw-bold text-primary"><i class="fas fa-upload me-2"></i>Upload Barang dari Excel</h2>
+                    <div class="mb-3">
+                        <a href="{{ url_for('products.download_template') }}" class="btn btn-outline-primary">
+                            <i class="fas fa-download"></i> Download Template Excel
+                        </a>
+                    </div>
+                    <div class="file-upload-area mb-0" id="upload-area">
+                        <form id="upload-form" enctype="multipart/form-data">
+                            <div class="mb-3">
+                                <label for="excelFile" class="form-label">
+                                    <i class="fas fa-file-excel"></i> Pilih file Excel (.xlsx)
+                                </label>
+                                <input class="form-control" type="file" id="excelFile" name="excelFile" accept=".xlsx" required>
+                            </div>
+                            <button type="submit" class="btn btn-success">
+                                <i class="fas fa-eye"></i> Preview Data
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+            <div id="preview-section" class="mt-4" style="display:none;">
+                <div class="card shadow-sm border-0 mb-4" style="max-width:100%;">
+                    <div class="card-body p-4">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <h4 class="mb-0 fw-semibold text-primary"><i class="fas fa-table me-2"></i>Preview Data Barang</h4>
+                            <div id="data-stats"></div>
+                        </div>
+                        <div class="edit-hint mb-3">
+                            <i class="fas fa-info-circle"></i>
+                            <strong>Tips:</strong> Klik pada sel untuk mengedit data. Hover pada sel untuk melihat indikator edit. Gunakan filter status untuk melihat data yang berhasil/gagal.
+                        </div>
+                        <div class="table-responsive">
+                            <table id="preview-table" class="table table-bordered table-hover w-100 align-middle rounded-4 overflow-hidden"></table>
+                        </div>
+                        <div class="d-flex flex-wrap gap-2 mt-4 justify-content-end">
+                            <button id="edit-again-btn" class="btn btn-outline-warning d-none"><i class="fas fa-pen"></i> Edit Data Lagi</button>
+                            <button id="apply-btn" class="btn btn-primary btn-lg"><i class="fas fa-database"></i> Apply ke Database</button>
+                            <button id="reset-btn" class="btn btn-secondary"><i class="fas fa-redo"></i> Reset</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+    <!-- DataTables (requires jQuery already loaded in base.html) -->
+    <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
+    <script src="https://cdn.datatables.net/1.13.6/js/dataTables.bootstrap5.min.js"></script>
+    <script src="https://cdn.datatables.net/responsive/2.5.0/js/dataTables.responsive.min.js"></script>
+    <script src="https://cdn.datatables.net/responsive/2.5.0/js/responsive.bootstrap5.min.js"></script>
+
+    <!-- SweetAlert2 & FontAwesome -->
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="{{ url_for('products.static', filename='js/bulk_upload.js') }}"></script>
+{% endblock %}

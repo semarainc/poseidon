@@ -1,0 +1,417 @@
+/* RANT: FUCKK, Im a bit stressed here -,-'
+TOo many hacky ways here  !!!
+
+For me in the future
+BE A BETTER CODER AND PROGRAMMER !!!*/
+/* Custom styles for editable table */
+.editable-cell {
+    position: relative;
+    cursor: text;
+    background-color: #fff;
+    border: 2px solid transparent;
+    transition: all 0.3s ease;
+    padding: 8px 12px !important;
+}
+
+.editable-cell:hover {
+    background-color: #f8f9fa;
+    border-color: #dee2e6;
+    box-shadow: 0 0 0 0.2rem rgba(0,123,255,.25);
+}
+
+.editable-cell:focus {
+    background-color: #fff;
+    border-color: #0d6efd;
+    box-shadow: 0 0 0 0.2rem rgba(0,123,255,.25);
+    outline: none;
+}
+
+.editable-cell::before {
+    content: "✎";
+    position: absolute;
+    top: 2px;
+    right: 4px;
+    color: #6c757d;
+    font-size: 10px;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.editable-cell:hover::before {
+    opacity: 1;
+}
+
+.editable-cell:focus::before {
+    opacity: 0;
+}
+
+/* Table styling */
+#preview-table {
+    font-size: 15px;
+    border-radius: 14px;
+    overflow: hidden;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+    background: #fff;
+    margin-bottom: 0;
+    width: 100% !important;
+    min-width: max-content !important;
+    table-layout: auto !important;
+}
+
+/* Responsive scroll container */
+.table-responsive {
+    width: 100%;
+    padding-bottom: 10px;
+    border-radius: 14px;
+    background: #fff;
+    margin-bottom: 12px;
+}
+
+@media (max-width: 992px) {
+    .table-responsive {
+        padding-left: 4px;
+        padding-right: 4px;
+    }
+    #preview-table {
+        font-size: 14px;
+    }
+}
+@media (max-width: 576px) {
+    .table-responsive {
+        padding-left: 0;
+        padding-right: 0;
+        margin-left: -6px;
+        margin-right: -6px;
+    }
+    #preview-table {
+        font-size: 13px;
+    }
+}
+
+/* DataTables control area spacing */
+#preview-table_wrapper .dataTables_length,
+#preview-table_wrapper .dataTables_filter {
+    margin-top: 10px;
+    margin-bottom: 10px;
+}
+
+/* Patch: Searchbar DataTable selalu rata kanan dan responsif */
+#preview-table_wrapper .dataTables_filter {
+    margin-left: auto !important;
+    text-align: right !important;
+    display: block !important;
+    width: auto;
+}
+@media (max-width: 576px) {
+    #preview-table_wrapper .dataTables_filter {
+        width: 100% !important;
+        margin-left: 0 !important;
+        text-align: center !important;
+    }
+    #preview-table_filter label {
+        justify-content: center;
+    }
+}
+
+#preview-table_wrapper .dataTables_paginate {
+    margin-top: 8px;
+    margin-bottom: 8px;
+}
+
+/* Pagination button styling for modern look */
+#preview-table_wrapper .dataTables_paginate .paginate_button {
+    border-radius: 6px;
+    margin: 0 2px;
+    padding: 4px 10px;
+    border: 1px solid #dee2e6;
+    background: #f7f9fa;
+    color: #495057 !important;
+    transition: background 0.2s, color 0.2s;
+}
+#preview-table_wrapper .dataTables_paginate .paginate_button.current,
+#preview-table_wrapper .dataTables_paginate .paginate_button:hover {
+    background: #0d6efd;
+    color: #fff !important;
+    border-color: #0d6efd;
+}
+
+
+#preview-table th, #preview-table td {
+    vertical-align: middle !important;
+    border: none !important;
+    white-space: normal !important;
+    word-break: break-word !important;
+    overflow: visible !important;
+    text-overflow: unset !important;
+    max-width: none !important;
+}
+
+/* Gabungkan scroll header dan body agar satu scrollbar */
+.dataTables_wrapper .dataTables_scroll {
+    overflow-x: auto !important;
+    width: 100% !important;
+}
+.dataTables_scrollHead,
+.dataTables_scrollBody,
+.dataTables_scrollFoot {
+    width: 100% !important;
+    overflow-x: visible !important;
+}
+.dataTables_scrollBody {
+    overflow-x: inherit !important;
+    overflow-y: auto !important;
+}
+
+/* Pastikan header dan body tetap align saat scroll */
+#preview-table {
+    width: 100% !important;
+    min-width: max-content !important;
+    table-layout: auto !important;
+}
+
+#preview-table th {
+    background: linear-gradient(90deg, #495057 80%, #6c757d 100%);
+    color: #fff;
+    font-weight: 600;
+    text-align: center;
+    border-top: none !important;
+    border-bottom: 2px solid #dee2e6 !important;
+}
+
+#preview-table tbody tr {
+    border-bottom: 1px solid #f1f3f4;
+    transition: background 0.15s;
+}
+
+#preview-table tbody tr:last-child {
+    border-bottom: none;
+}
+
+#preview-table tbody tr:hover {
+    background: #f6f8fa;
+}
+
+/* Action cell and button */
+.action-cell {
+    text-align: center;
+    vertical-align: middle;
+    background-color: #f8f9fa !important;
+}
+
+.btn-hapus {
+    background-color: #dc3545;
+    border-color: #dc3545;
+    color: white;
+    font-size: 13px;
+    padding: 5px 10px;
+    border-radius: 6px;
+    transition: all 0.2s;
+    box-shadow: 0 2px 6px rgba(220,53,69,0.08);
+}
+
+.btn-hapus:hover, .btn-hapus:focus {
+    background-color: #c82333;
+    border-color: #bd2130;
+    transform: scale(1.07);
+    color: #fff;
+    outline: none;
+}
+
+
+/* Status filter in header */
+.status-filter-dropdown {
+    display: inline-block;
+    position: relative;
+    vertical-align: middle;
+}
+.status-filter-mini {
+    min-width: 70px;
+    border-radius: 12px;
+    font-size: 12px;
+    padding: 2px 22px 2px 8px;
+    margin: 0;
+    background: #f5f7fa;
+    border: 1px solid #d1d5db;
+    color: #495057;
+    outline: none;
+    appearance: none;
+    cursor: pointer;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.03);
+    background-image: none;
+}
+.status-filter-mini:focus {
+    border-color: #0d6efd;
+    box-shadow: 0 0 0 0.12rem rgba(13,110,253,.10);
+    background: #eef2fa;
+}
+.status-filter-mini option {
+    background: #fff;
+    color: #495057;
+}
+.status-filter-dropdown .dropdown-caret {
+    pointer-events: none;
+    position: absolute;
+    right: 7px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 14px;
+    height: 14px;
+    display: inline-block;
+    background: url('data:image/svg+xml;utf8,<svg fill="%23495057" height="14" viewBox="0 0 20 20" width="14" xmlns="http://www.w3.org/2000/svg"><path d="M7.293 7.293a1 1 0 011.414 0L10 8.586l1.293-1.293a1 1 0 111.414 1.414l-2 2a1 1 0 01-1.414 0l-2-2a1 1 0 010-1.414z"/></svg>') no-repeat center center;
+    background-size: 14px 14px;
+}
+
+.status-filter-select {
+    min-width: 120px;
+    border-radius: 20px;
+    font-size: 13px;
+    padding: 2px 14px 2px 8px;
+    margin-top: 2px;
+    margin-bottom: 2px;
+    background: #f5f7fa;
+    border: 1px solid #d1d5db;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.03);
+    color: #495057;
+    transition: border-color 0.2s, box-shadow 0.2s;
+    outline: none;
+    appearance: none;
+    cursor: pointer;
+    background-image: url('data:image/svg+xml;utf8,<svg fill="%23495057" height="20" viewBox="0 0 20 20" width="20" xmlns="http://www.w3.org/2000/svg"><path d="M7.293 7.293a1 1 0 011.414 0L10 8.586l1.293-1.293a1 1 0 111.414 1.414l-2 2a1 1 0 01-1.414 0l-2-2a1 1 0 010-1.414z"/></svg>');
+    background-repeat: no-repeat;
+    background-position: right 8px center;
+    background-size: 16px 16px;
+}
+.status-filter-select:focus {
+    border-color: #0d6efd;
+    box-shadow: 0 0 0 0.12rem rgba(13,110,253,.15);
+    background: #eef2fa;
+}
+.status-filter-select option {
+    background: #fff;
+    color: #495057;
+}
+
+
+/* Responsive tweaks */
+@media (max-width: 768px) {
+    #preview-table th, #preview-table td {
+        font-size: 13px;
+        padding: 6px 4px !important;
+    }
+    .flatpickr-input {
+        width: 100px;
+    }
+}
+
+
+#preview-table th {
+    background-color: #495057;
+    color: white;
+    font-weight: 600;
+    text-align: center;
+    vertical-align: middle;
+}
+
+#preview-table tbody tr:hover {
+    background-color: rgba(0,123,255,0.05);
+}
+
+/* Action buttons */
+.action-cell {
+    text-align: center;
+    vertical-align: middle;
+    background-color: #f8f9fa !important;
+}
+
+.btn-hapus {
+    background-color: #dc3545;
+    border-color: #dc3545;
+    color: white;
+    font-size: 12px;
+    padding: 4px 8px;
+    transition: all 0.3s ease;
+}
+
+.btn-hapus:hover {
+    background-color: #c82333;
+    border-color: #bd2130;
+    transform: scale(1.05);
+}
+
+/* Loading overlay */
+.table-loading {
+    position: relative;
+}
+
+.table-loading::after {
+    content: "Memuat tabel...";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: rgba(255,255,255,0.9);
+    padding: 20px;
+    border-radius: 8px;
+    font-weight: bold;
+    color: #495057;
+    z-index: 1000;
+}
+
+/* Preview section animation */
+#preview-section {
+    animation: slideIn 0.5s ease-out;
+}
+
+@keyframes slideIn {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* File upload area */
+.file-upload-area {
+    border: 2px dashed #dee2e6;
+    border-radius: 8px;
+    padding: 20px;
+    text-align: center;
+    transition: all 0.3s ease;
+    background-color: #f8f9fa;
+}
+
+.file-upload-area:hover {
+    border-color: #0d6efd;
+    background-color: rgba(0,123,255,0.05);
+}
+
+.file-upload-area.dragover {
+    border-color: #0d6efd;
+    background-color: rgba(0,123,255,0.1);
+}
+
+/* Edit hint */
+.edit-hint {
+    background-color: #d1ecf1;
+    border: 1px solid #bee5eb;
+    color: #0c5460;
+    padding: 8px 12px;
+    border-radius: 4px;
+    margin-bottom: 15px;
+    font-size: 14px;
+}
+
+/* Stats badge */
+.stats-badge {
+    display: inline-block;
+    background-color: #17a2b8;
+    color: white;
+    padding: 4px 8px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: bold;
+    margin-right: 10px;
+}
