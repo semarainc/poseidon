@@ -239,9 +239,15 @@ class DetailPenjualan(db.Model):
             'satuan': self.barang_data.satuan if self.barang_data else 'Pcs'
         }
 
-def init_db_with_app_context(app_instance):
+def init_db_with_app_context(app_instance, instance_folder_name='instance'):
     from sqlalchemy import inspect as sqlalchemy_inspect
-    lockfile_path = '/tmp/poseidon_db_init.lock'
+    from lib.apppath import app_path
+
+    # Buat folder instance jika belum ada
+    instance_folder_path = app_path(instance_folder_name)
+    os.makedirs(instance_folder_path, exist_ok=True)
+
+    lockfile_path = app_path(f'{instance_folder_name}/poseidon_db_init.lock')
     with open(lockfile_path, 'w') as lockfile:
         fcntl.flock(lockfile, fcntl.LOCK_EX)
         try:
