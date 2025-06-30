@@ -2,10 +2,23 @@ from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime, date
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_login import UserMixin
-import fcntl
 import os
 
 db = SQLAlchemy()
+
+# Cross-platform file lock/unlock
+if os.name == 'nt':  # Windows
+    import msvcrt
+    def lock_file(f):
+        msvcrt.locking(f.fileno(), msvcrt.LK_LOCK, 1)
+    def unlock_file(f):
+        msvcrt.locking(f.fileno(), msvcrt.LK_UNLCK, 1)
+else:  # Unix/Linux
+    import fcntl
+    def lock_file(f):
+        fcntl.flock(f, fcntl.LOCK_EX)
+    def unlock_file(f):
+        fcntl.flock(f, fcntl.LOCK_UN)
 
 class User(UserMixin, db.Model):
     __tablename__ = 'user'
@@ -249,7 +262,7 @@ def init_db_with_app_context(app_instance, instance_folder_name='instance'):
 
     lockfile_path = app_path(f'{instance_folder_name}/poseidon_db_init.lock')
     with open(lockfile_path, 'w') as lockfile:
-        fcntl.flock(lockfile, fcntl.LOCK_EX)
+        lock_file(lockfile)
         try:
             with app_instance.app_context():
                 inspector = sqlalchemy_inspect(db.engine)
@@ -309,7 +322,7 @@ def init_db_with_app_context(app_instance, instance_folder_name='instance'):
                     else:
                         print(f"Error during database initialization with models.py: {e}")
         finally:
-            fcntl.flock(lockfile, fcntl.LOCK_UN)
+            unlock_file(lockfile)
 
 
 def generate_no_transaksi():

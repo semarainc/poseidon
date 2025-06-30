@@ -1,9 +1,16 @@
-Flask==2.3.3
-Flask-SQLAlchemy==3.0.5
-SQLAlchemy==2.0.21
-Werkzeug==2.3.7
-Pillow # 
-python-dotenv # 
+# requirements.txt
+# Gunakan perintah berikut untuk install sesuai OS:
+# Linux/Unix: pip install -r requirements.txt
+# Windows: pip install -r requirements-windows.txt
+
+Flask
+Flask-SQLAlchemy
+Flask-Login
+Werkzeug
+SQLAlchemy
+Pillow
+python-dotenv
 flask-login
 openpyxl
-uwsgi
+# Untuk Linux/Unix, uwsgi akan diinstall dari requirements.txt
+uwsgi; platform_system != 'Windows'
