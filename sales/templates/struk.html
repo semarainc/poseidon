@@ -8,11 +8,33 @@
     <style>
         @media print {
             .no-print { display: none !important; }
-            body { margin: 0; }
+            body { 
+                margin: 0; 
+                padding: 0;
+            }
             .struk-container { 
                 width: 80mm !important; 
                 margin: 0 !important;
+                padding: 10px !important;
                 box-shadow: none !important;
+                border: none !important;
+            }
+            /* Hide page header and footer */
+            @page {
+                margin: 0;
+                size: 80mm auto;
+            }
+            /* Hide browser header/footer */
+            html, body {
+                height: auto !important;
+                overflow: visible !important;
+            }
+            /* Ensure only receipt content is visible */
+            .container {
+                width: 100% !important;
+                max-width: none !important;
+                margin: 0 !important;
+                padding: 0 !important;
             }
         }
         

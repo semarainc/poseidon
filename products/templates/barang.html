@@ -100,11 +100,29 @@
                                 <td>{{ barang_item.kategori }}</td>
                                 <td class="text-center">
                                     {% if barang_item.stok < 10 %}
-                                        <span class="badge bg-danger">{{ barang_item.stok }}</span>
+                                        <span class="badge bg-danger">
+                                        {% if barang_item.stok == barang_item.stok|int %}
+                                            {{ barang_item.stok|int }}
+                                        {% else %}
+                                            {{ barang_item.stok }}
+                                        {% endif %}
+                                        </span>
                                     {% elif barang_item.stok < 20 %}
-                                        <span class="badge bg-warning text-dark">{{ barang_item.stok }}</span>
+                                        <span class="badge bg-warning text-dark">
+                                        {% if barang_item.stok == barang_item.stok|int %}
+                                            {{ barang_item.stok|int }}
+                                        {% else %}
+                                            {{ barang_item.stok }}
+                                        {% endif %}
+                                        </span>
                                     {% else %}
-                                        <span class="badge bg-success">{{ barang_item.stok }}</span>
+                                        <span class="badge bg-success">
+                                        {% if barang_item.stok == barang_item.stok|int %}
+                                            {{ barang_item.stok|int }}
+                                        {% else %}
+                                            {{ barang_item.stok }}
+                                        {% endif %}
+                                        </span>
                                     {% endif %}
                                 </td>
                                 <td class="text-center">{{ barang_item.satuan or 'Pcs' }}</td>

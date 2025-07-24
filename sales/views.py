@@ -113,6 +113,15 @@ def proses_penjualan():
     if not data or 'items' not in data or not data['items']:
         return jsonify({'success': False, 'message': 'Tidak ada item dalam transaksi.'}), 400
 
+    # ---Cegah duplikasi transaksi ---
+    queue_id = data.get('queue_id')  # Pastikan frontend mengirim queue_id (backendId antrean)
+    if queue_id:
+        # Cek apakah sudah ada transaksi untuk queue/antrian ini
+        existing_penjualan = PenjualanAntrian.query.filter_by(id=queue_id, user_id=current_user.id).first()
+        if not existing_penjualan:
+            # Sudah dihapus, tidak boleh diproses ulang
+            return jsonify({'success': False, 'message': 'Transaksi ini sudah diproses atau antrean sudah dihapus.'}), 409
+    
     no_transaksi = generate_no_transaksi()
     pelanggan_id_str = data.get('pelanggan_id')
     metode_pembayaran_frontend = data.get('metode_pembayaran', 'tunai')

@@ -3,6 +3,107 @@
 {% block title %}Transaksi Penjualan - POSEIDON{% endblock %}
 
 {% block content %}
+<style>
+.search-nav-instruction {
+    display: inline-block;
+    background: var(--bs-primary-bg-subtle, #eaf3fb);
+    border-radius: 0.5rem;
+    padding: 5px 18px 5px 12px;
+    color: #19548a;
+    font-size: 1em;
+    margin-top: 6px;
+    margin-bottom: -4px;
+    border-left: 4px solid #0d6efd;
+    font-weight: 500;
+    box-shadow: 0 2px 8px rgba(13,110,253,0.04);
+    letter-spacing: 0.01em;
+    border: 1px solid #b6d4fe;
+}
+
+.search-nav-instruction .kbd {
+    display: inline-block;
+    background: #f8fafd;
+    color: #0d6efd;
+    border-radius: 0.35rem;
+    border: 1px solid #b6d4fe;
+    padding: 2px 10px 2px 10px;
+    margin: 0 2px;
+    font-family: 'JetBrains Mono', 'Fira Mono', 'Consolas', monospace;
+    font-size: 1em;
+    font-weight: 600;
+    box-shadow: none;
+    vertical-align: middle;
+    letter-spacing: 0.03em;
+    transition: background 0.2s, color 0.2s;
+    line-height: 1.2;
+}
+
+/* Perbaiki warna item aktif pada hasil pencarian agar tidak terlalu terang dan tetap readable */
+#searchResults .list-group-item.active, 
+#searchResults .list-group-item.active:focus, 
+#searchResults .list-group-item.active:hover {
+    background-color: #e7f1ff !important; /* biru sangat muda, tidak terlalu terang */
+    color: #19548a !important;            /* biru tua, tetap jelas */
+    border-color: #b6d4fe !important;
+    font-weight: 600;
+}
+
+/* Odoo-style quantity input */
+.cart-qty-group {
+    display: inline-flex;
+    align-items: center;
+    border: 1px solid #dee2e6;
+    border-radius: 0.375rem;
+    overflow: hidden;
+    background: white;
+    max-width: 120px;
+}
+.cart-qty-btn {
+    background: #f8f9fa;
+    border: none;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    font-weight: bold;
+    color: #495057;
+    cursor: pointer;
+    transition: background-color 0.15s;
+}
+.cart-qty-btn:hover {
+    background: #e9ecef;
+}
+.cart-qty-btn:active {
+    background: #dee2e6;
+}
+.cart-qty-input {
+    border: none;
+    outline: none;
+    text-align: center;
+    width: 56px;
+    height: 32px;
+    font-size: 14px;
+    font-weight: 500;
+    background: white;
+    -moz-appearance: textfield;
+}
+.cart-qty-input::-webkit-outer-spin-button,
+.cart-qty-input::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+.cart-qty-group:focus-within {
+    border-color: #0d6efd;
+    box-shadow: 0 0 0 2px rgba(13, 110, 253, 0.25);
+}
+
+.cart-table, .cart-table > tbody {
+    --bs-table-bg: transparent !important;
+    background-color: transparent !important;
+}
+</style>
 <div class="row">
     <div class="col-md-12">
         <h2 class="mb-4">
@@ -32,6 +133,8 @@
             <span class="badge bg-primary ms-1">F2</span> Proses Pembayaran
             <span class="badge bg-primary ms-1">F3</span> Reset Antrean
             <span class="badge bg-primary ms-1">F4</span> Tambah Antrean
+            <span class="badge bg-primary ms-1">F7</span> Antrean Sebelumnya
+            <span class="badge bg-primary ms-1">F8</span> Antrean Selanjutnya
         </div>
     </div>
 </div>
@@ -51,8 +154,15 @@
     <div class="row" id="activeSaleContent" style="display: none;"> 
         <div class="col-lg-7 col-md-12 mb-3">
             <div class="card mb-3">
-                <div class="card-header">
-                    <h5 class="mb-0"><i class="fas fa-search me-2"></i>Cari Barang (F1)</h5>
+                <div class="card-header d-flex align-items-center justify-content-between flex-wrap gap-2">
+                    <h5 class="mb-0 d-flex align-items-center">
+                        <i class="fas fa-search me-2"></i>Cari Barang (F1)
+                    </h5>
+                    <small class="search-nav-instruction alert bg-light border rounded d-inline-block mb-0 fw-semibold ms-auto">
+                        <span class="kbd badge bg-light border text-primary fw-semibold">↑</span><span class="kbd badge bg-light border text-primary fw-semibold">↓</span> navigasi,
+                        <span class="kbd badge bg-light border text-primary fw-semibold">Enter</span> pilih,
+                        <span class="kbd badge bg-light border text-primary fw-semibold">Esc</span> bersihkan
+                    </small>
                 </div>
                 <div class="card-body">
                     <div class="input-group">
@@ -165,7 +275,7 @@
 </div>
 
 <div class="modal fade" id="modalKonfirmasi" tabindex="-1" aria-labelledby="modalKonfirmasiLabel" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
         <div class="modal-content">
             <div class="modal-header">
                 <h5 class="modal-title" id="modalKonfirmasiLabel">Konfirmasi Pembayaran</h5>
@@ -181,7 +291,7 @@
                     <hr>
                     <div class="mb-3">
                         <label for="jumlahBayarInput" class="form-label">Jumlah Bayar (Rp):</label>
-                        <input type="number" step="any" class="form-control" id="jumlahBayarInput" placeholder="Masukkan jumlah uang" oninput="calculateChange()">
+                        <input type="text" inputmode="numeric" autocomplete="off" class="form-control" id="jumlahBayarInput" placeholder="Masukkan jumlah uang" oninput="formatRupiahInput(this); calculateChange();">
                     </div>
                     <div class="mb-3">
                         <label class="form-label">Kembalian (Rp):</label>
@@ -189,7 +299,6 @@
                     </div>
                      <div id="paymentError" class="alert alert-danger mt-2" style="display: none;"></div>
                 </div>
-                <p class="mt-3">Anda yakin ingin melanjutkan transaksi untuk antrean ini?</p>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
@@ -200,6 +309,42 @@
         </div>
     </div>
 </div>
+
+<!-- Modal Print Struk -->
+<div class="modal fade" id="modalPrintStruk" tabindex="-1" aria-labelledby="modalPrintStrukLabel" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="modalPrintStrukLabel">Pembayaran Berhasil</h5>
+        <!-- Remove default close X -->
+      </div>
+      <div class="modal-body text-center">
+        <p class="mb-2"><strong>Jumlah Bayar:</strong><br>
+          <span id="printJumlahBayar" class="display-5 fw-bold text-success"></span></p>
+        <p class="mb-3"><strong>Kembalian:</strong><br>
+          <span id="printKembalian" class="display-5 fw-bold text-primary"></span></p>
+        <div class="d-flex gap-2">
+          <button class="btn btn-primary flex-fill" id="btnPrintStruk" type="button" tabindex="0"><i class="fas fa-print me-2"></i>Print Struk</button>
+          <button class="btn btn-secondary flex-fill" id="btnClosePrintStruk">Tutup</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<style>
+#modalPrintStruk .display-5 { font-size: 2.5rem; }
+</style>
+
+<!-- Area struk yang hanya muncul saat print -->
+<style>
+@media print {
+  body * { visibility: hidden !important; }
+  #strukArea, #strukArea * { visibility: visible !important; }
+  #strukArea { position: absolute; left: 0; top: 0; width: 100vw; background: #fff; z-index: 99999; }
+}
+</style>
+<div id="strukArea" class="d-none"></div>
+
 {% endblock %}
 
 {% block scripts %}
@@ -207,7 +352,36 @@
 let salesQueues = []; 
 let activeQueueId = null;
 
+function goToPreviousQueue() {
+    if (!salesQueues.length || !activeQueueId) return;
+    const idx = salesQueues.findIndex(q => q.id === activeQueueId);
+    if (idx === -1) return;
+    const prevIdx = (idx - 1 + salesQueues.length) % salesQueues.length;
+    const prevQueue = salesQueues[prevIdx];
+    if (prevQueue) switchQueue(prevQueue.id);
+}
+
+function goToNextQueue() {
+    if (!salesQueues.length || !activeQueueId) return;
+    const idx = salesQueues.findIndex(q => q.id === activeQueueId);
+    if (idx === -1) return;
+    const nextIdx = (idx + 1) % salesQueues.length;
+    const nextQueue = salesQueues[nextIdx];
+    if (nextQueue) switchQueue(nextQueue.id);
+}
+
+
 // === SERVER-SIDE QUEUE ONLY ===
+
+// ESC hotkey to close Pembayaran Berhasil modal
+window.addEventListener('keydown', function(e) {
+    const modal = document.getElementById('modalPrintStruk');
+    const btnClose = document.getElementById('btnClosePrintStruk');
+    if (modal && btnClose && modal.classList.contains('show') && (e.key === 'Escape' || e.key === 'Esc')) {
+        e.preventDefault();
+        btnClose.click();
+    }
+});
 async function syncQueuesFromBackend() {
     const res = await fetch('/sales/antrian');
     const backendQueues = await res.json();
@@ -239,7 +413,16 @@ async function syncQueuesFromBackend() {
 
 async function addQueue() {
     showLoadingOverlay();
-    const newQueueName = `Antrean #${salesQueues.length + 1}`;
+    // Cari nomor antrean terbesar yang ada
+    let maxNum = 0;
+    salesQueues.forEach(q => {
+        const match = q.name.match(/Antrean\s*#?(\d+)/i);
+        if (match) {
+            const num = parseInt(match[1], 10);
+            if (num > maxNum) maxNum = num;
+        }
+    });
+    const newQueueName = `Antrean #${maxNum + 1}`;
     try {
         const res = await fetch('/sales/antrian/tambah', {
             method: 'POST',
@@ -353,6 +536,25 @@ let searchTimeout;
 let barcodeBuffer = '';
 let barcodeEventTimeout; 
 const modalKonfirmasiInstance = new bootstrap.Modal(document.getElementById('modalKonfirmasi'));
+
+// Tekan Enter pada jumlahBayarInput untuk konfirmasi pembayaran jika uang cukup
+setTimeout(() => {
+    const input = document.getElementById('jumlahBayarInput');
+    if (input) {
+        input.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                const btn = document.getElementById('btnKonfirmasiFinal');
+                if (btn && !btn.disabled) btn.click();
+            }
+        });
+    }
+}, 500);
+
+document.getElementById('modalKonfirmasi').addEventListener('shown.bs.modal', function () {
+    const input = document.getElementById('jumlahBayarInput');
+    if (input) input.focus();
+});
 
 function generateQueueId() { return 'queue-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9); }
 
@@ -491,6 +693,7 @@ function addToCart(id, nama, kode, harga, stok, satuan, hargaGrosir, batasMinima
     document.getElementById('searchBarang').value = ''; 
     document.getElementById('searchResults').innerHTML = ''; 
     updateCartDisplay(); 
+    highlightCartRow(id);
     updateQueueCartToBackend(activeQueueId); 
 }
 
@@ -520,7 +723,8 @@ function updateCartDisplay() {
     } else {
         cartEmptyMessage.style.display = 'none';
         const table = document.createElement('table');
-        table.className = 'table table-sm';
+        table.className = 'table table-sm cart-table';
+        table.style.cssText = '--bs-table-bg: transparent; background-color: transparent;';
         table.innerHTML = `<thead><tr><th>Barang</th><th class="text-center">Jumlah</th><th class="text-end">Subtotal</th><th class="text-center">Aksi</th></tr></thead><tbody></tbody>`;
         const tbody = table.querySelector('tbody');
         currentDisplayCart.forEach(item => {
@@ -531,6 +735,7 @@ function updateCartDisplay() {
             const itemTipeHarga = item.tipe_harga || 'eceran';
 
             row = tbody.insertRow();
+            row.setAttribute('data-item-id', item.id);
             row.innerHTML = `
                 <td>
                     ${item.nama}<br>
@@ -538,11 +743,11 @@ function updateCartDisplay() {
                     ${itemTipeHarga === 'grosir' ? '<span class="badge bg-info text-dark ms-1">Grosir</span>' : ''}
                 </td>
                 <td class="text-center align-middle">
-                    <div class="input-group input-group-sm justify-content-center" style="width:110px;">
-                        <button class="btn btn-outline-secondary btn-sm" type="button" onclick="decrementQuantity(${item.id})">-</button>
-                        <input type="number" step="any" class="form-control form-control-sm text-center px-1" value="${itemJumlah}" 
+                    <div class="cart-qty-group">
+                        <button class="cart-qty-btn" type="button" onclick="decrementQuantity(${item.id})">−</button>
+                        <input type="number" step="any" class="cart-qty-input" value="${itemJumlah}" 
                                onchange="updateQuantity(${item.id}, this.value)" min="1" max="${itemStokAwal}">
-                        <button class="btn btn-outline-secondary btn-sm" type="button" onclick="incrementQuantity(${item.id})">+</button>
+                        <button class="cart-qty-btn" type="button" onclick="incrementQuantity(${item.id})">+</button>
                     </div>
                     <small class="text-muted d-block mt-1">${itemSatuan}</small>
                 </td>
@@ -579,6 +784,7 @@ function incrementQuantity(itemId) {
             }
             
             updateCartDisplay(); 
+            highlightCartRow(itemId);
             updateQueueCartToBackend(activeQueueId);
         } else {
             alert(`Stok ${item.nama} tidak mencukupi (tersedia: ${item.stok_awal}).`);
@@ -662,7 +868,8 @@ function removeFromCart(itemId) {
     if (!confirm(`Hapus ${item.nama} dari keranjang?`)) { return; }
     
     activeQ.cart = activeQ.cart.filter(i => i.id !== itemId);
-    updateCartDisplay();
+    updateCartDisplay(); 
+    highlightCartRow(itemId);
     updateQueueCartToBackend(activeQueueId);
 }
 
@@ -711,15 +918,16 @@ function toggleCashPaymentFields() {
 }
 
 function calculateChange() {
-    const totalHargaStr = document.getElementById('konfirmasiTotalHarga').textContent.replace('Rp ', '').replace(/\./g, '');
-    const totalHarga = parseFloat(totalHargaStr.replace(/,/g, '')) || 0;
-    const jumlahBayar = parseFloat(document.getElementById('jumlahBayarInput').value) || 0;
+    const totalHargaStr = document.getElementById('konfirmasiTotalHarga').textContent.replace(/[^\d]/g, '');
+    const totalHarga = parseInt(totalHargaStr, 10) || 0;
+    let jumlahBayarRaw = document.getElementById('jumlahBayarInput').value.replace(/[^\d]/g, '');
+    const jumlahBayar = parseInt(jumlahBayarRaw, 10) || 0;
     const kembalianDisplay = document.getElementById('kembalianDisplay');
     const paymentErrorDiv = document.getElementById('paymentError');
     const btnKonfirmasiFinal = document.getElementById('btnKonfirmasiFinal');
 
     if (jumlahBayar < totalHarga) {
-        kembalianDisplay.value = 'Rp 0'; // Or some error indication
+        kembalianDisplay.value = 'Rp 0';
         if (paymentErrorDiv) {
             paymentErrorDiv.textContent = 'Jumlah bayar kurang dari total transaksi.';
             paymentErrorDiv.style.display = 'block';
@@ -727,7 +935,7 @@ function calculateChange() {
         btnKonfirmasiFinal.disabled = true;
     } else {
         const kembalian = jumlahBayar - totalHarga;
-        kembalianDisplay.value = 'Rp ' + kembalian.toLocaleString();
+        kembalianDisplay.value = 'Rp ' + kembalian.toLocaleString('id-ID');
         if (paymentErrorDiv) paymentErrorDiv.style.display = 'none';
         btnKonfirmasiFinal.disabled = false;
     }
@@ -767,6 +975,7 @@ function prosesPembayaranCurrentQueue() {
     modalKonfirmasiInstance.show();
 }
 
+
 function konfirmasiDanBayarCurrentQueue() {
     if (!activeQueueId) { alert("Tidak ada antrean aktif untuk dibayar."); return; }
     
@@ -779,13 +988,177 @@ function konfirmasiDanBayarCurrentQueue() {
     
     let jumlahBayarTunai = null;
     if (metodePembayaran === 'tunai') {
-        jumlahBayarTunai = parseFloat(document.getElementById('jumlahBayarInput').value) || 0;
+        let raw = document.getElementById('jumlahBayarInput').value.replace(/[^\d]/g, '');
+        jumlahBayarTunai = parseInt(raw, 10) || 0;
+    }
+    
+    // Prepare payment data for backend
+    const paymentData = {
+        queue_id: activeQ.backendId, // integer DB id
+        items: activeQ.cart.map(item => ({
+            barang_id: item.id, // required by backend
+            jumlah: parseFloat(item.jumlah) || 0,
+            harga_satuan: parseFloat(item.harga) || 0,
+            subtotal: (parseFloat(item.harga) || 0) * (parseFloat(item.jumlah) || 0),
+            tipe_harga: item.tipe_harga || 'eceran',
+        })),
+        total_harga: totalHarga,
+        pelanggan_id: pelangganId || null,
+        metode_pembayaran: metodePembayaran,
+        jumlah_bayar_tunai: jumlahBayarTunai
+    };
+
+    // Call backend to process payment
+    modalKonfirmasiInstance.hide();
+    
+    fetch('/sales/proses_penjualan', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(paymentData)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Simpan data pembayaran terakhir untuk print
+            window._lastPaymentData = {
+                id: data.penjualan_id,
+                no_transaksi: data.no_transaksi,
+                queueName: activeQ.name,
+                totalHarga: totalHarga,
+                jumlahBayar: jumlahBayarTunai,
+                kembalian: data.kembalian_tunai || (jumlahBayarTunai !== null ? (jumlahBayarTunai - totalHarga) : 0),
+                pelanggan: pelangganId,
+                metodePembayaran: metodePembayaran,
+                waktu: new Date().toLocaleString('id-ID')
+            };
+
+            // Show success modal
+            document.getElementById('printJumlahBayar').textContent = 'Rp ' + (jumlahBayarTunai||0).toLocaleString('id-ID');
+            document.getElementById('printKembalian').textContent = 'Rp ' + (window._lastPaymentData.kembalian||0).toLocaleString('id-ID');
+            const printStrukModal = new bootstrap.Modal(document.getElementById('modalPrintStruk'));
+            printStrukModal.show();
+
+            // Autofocus Print Struk button after modal animation using shown.bs.modal event
+            const modalEl = document.getElementById('modalPrintStruk');
+            function focusPrintBtnAfterShow() {
+                const btnPrint = document.getElementById('btnPrintStruk');
+                if (btnPrint) btnPrint.focus();
+                modalEl.removeEventListener('shown.bs.modal', focusPrintBtnAfterShow);
+            }
+            modalEl.addEventListener('shown.bs.modal', focusPrintBtnAfterShow);
+
+            const btnPrint = document.getElementById('btnPrintStruk');
+            const btnClose = document.getElementById('btnClosePrintStruk');
+            if (btnClose) {
+                btnClose.addEventListener('click', function() {
+                    // Hapus antrean di backend saat 'Tutup' diklik
+                    if (activeQ && activeQ.backendId) {
+                        fetch(`/sales/antrian/${activeQ.backendId}/hapus`, { method: 'POST' })
+                        .then(() => {
+                            // Remove completed queue from salesQueues and update UI
+                            const idx = salesQueues.findIndex(q => q.id === activeQueueId);
+                            if (idx !== -1) {
+                                salesQueues.splice(idx, 1);
+                                if (salesQueues.length > 0) {
+                                    activeQueueId = salesQueues[0].id;
+                                } else {
+                                    activeQueueId = null;
+                                }
+                                renderQueueTabs();
+                                updateCartDisplay();
+                            }
+                            printStrukModal.hide();
+                        });
+                    } else {
+                        printStrukModal.hide();
+                    }
+                });
+                // Keyboard arrow navigation
+                btnClose.addEventListener('keydown', function(e) {
+                    if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
+                        e.preventDefault();
+                        if (btnPrint) btnPrint.focus();
+                    }
+                });
+            }
+            // Jika user refresh/tab close sebelum klik Tutup, auto-hapus antrean di backend
+            let queueDeleted = false;
+            function autoDeleteQueueOnUnload(e) {
+                if (!queueDeleted && activeQ && activeQ.backendId) {
+                    navigator.sendBeacon(`/sales/antrian/${activeQ.backendId}/hapus`);
+                    queueDeleted = true;
+                }
+            }
+            window.addEventListener('beforeunload', autoDeleteQueueOnUnload);
+            if (btnClose) {
+                btnClose.addEventListener('click', function() {
+                    queueDeleted = true;
+                    window.removeEventListener('beforeunload', autoDeleteQueueOnUnload);
+                });
+            }
+            if (btnPrint) {
+                btnPrint.addEventListener('click', function() {
+                    // Redirect to struk.html with transaction id
+                    let trxId = (window._lastPaymentData && window._lastPaymentData.id) ? window._lastPaymentData.id : '';
+                    if (!trxId && typeof activeQueueId !== 'undefined') trxId = activeQueueId;
+                    window.location.href = '/sales/struk/' + encodeURIComponent(trxId);
+                });
+                // Keyboard arrow navigation
+                btnPrint.addEventListener('keydown', function(e) {
+                    if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
+                        e.preventDefault();
+                        if (btnClose) btnClose.focus();
+                    }
+                    // Fallback: Enter/Space triggers click
+                    if ((e.key === 'Enter' || e.key === ' ') && document.activeElement === btnPrint) {
+                        e.preventDefault();
+                        btnPrint.click();
+                    }
+                });
+            }
+        } else {
+            // Payment failed
+            alert('Pembayaran gagal: ' + (data.message || 'Terjadi kesalahan'));
+        }
+    })
+    .catch(error => {
+        console.error('Error processing payment:', error);
+        alert('Terjadi kesalahan saat memproses pembayaran. Silakan coba lagi.');
+    });
+}
+
+
+// Render area struk untuk print
+function renderStrukArea(data) {
+    if (!data) return;
+    let html = `<div style="max-width:350px;margin:0 auto;padding:18px 8px;font-family:monospace;font-size:15px;">
+        <div style="text-align:center;">
+            <b>POSEIDON MART</b><br/>
+            <small>${data.waktu||''}</small>
+        </div>
+        <hr/>
+        <div>Antrean: <b>${data.queueName||''}</b></div>
+        <div>Total: <b>Rp ${(data.totalHarga||0).toLocaleString('id-ID')}</b></div>
+        <div>Bayar: <b>Rp ${(data.jumlahBayar||0).toLocaleString('id-ID')}</b></div>
+        <div>Kembali: <b>Rp ${(data.kembalian||0).toLocaleString('id-ID')}</b></div>
+        <div>Pelanggan: <b>${data.pelanggan||'Umum'}</b></div>
+        <div>Metode: <b>${data.metodePembayaran||'-'}</b></div>
+        <hr/>
+        <div style="text-align:center;">Terima kasih!</div>
+    </div>`;
+    document.getElementById('strukArea').innerHTML = html;
+    document.getElementById('strukArea').classList.remove('d-none');
+    setTimeout(()=>{
+        document.getElementById('strukArea').classList.add('d-none');
+    }, 500);
         if (jumlahBayarTunai < totalHarga) {
             alert("Jumlah bayar kurang dari total harga.");
             document.getElementById('jumlahBayarInput').focus();
             return; // Don't proceed
         }
-    }
+    
     
     modalKonfirmasiInstance.hide(); // Hide modal before fetch
 
@@ -910,10 +1283,47 @@ function showToast(title, message, type = 'success') {
     bsToast.show();
 }
 
+// Global variables for search navigation
+let selectedSearchIndex = -1;
+let searchResultItems = [];
+
 // Keyboard shortcuts
 function handleShortcut(e) {
-    // Hindari jika dalam form element atau dialog terbuka
-    if (document.activeElement.tagName === 'INPUT' || 
+    // F7: Pindah ke antrean sebelumnya
+    if (e.key === 'F7') {
+        e.preventDefault();
+        goToPreviousQueue();
+        return;
+    }
+    // F8: Pindah ke antrean selanjutnya
+    if (e.key === 'F8') {
+        e.preventDefault();
+        goToNextQueue();
+        return;
+    }
+    // Handle search results navigation when search input is focused
+    if (document.activeElement.id === 'searchBarang') {
+        if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            navigateSearchResults('down');
+            return;
+        } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            navigateSearchResults('up');
+            return;
+        } else if (e.key === 'Enter') {
+            e.preventDefault();
+            selectCurrentSearchResult();
+            return;
+        } else if (e.key === 'Escape') {
+            e.preventDefault();
+            clearSearchResults();
+            return;
+        }
+    }
+    
+    // Hindari jika dalam form element atau dialog terbuka (kecuali search input untuk navigasi)
+    if ((document.activeElement.tagName === 'INPUT' && document.activeElement.id !== 'searchBarang') || 
         document.activeElement.tagName === 'TEXTAREA' || 
         document.activeElement.tagName === 'SELECT' ||
         document.querySelector('.modal.show')) {
@@ -935,6 +1345,51 @@ function handleShortcut(e) {
         e.preventDefault();
         addQueue();
     }
+}
+
+// Search results navigation functions
+function navigateSearchResults(direction) {
+    const searchResultsDiv = document.getElementById('searchResults');
+    searchResultItems = searchResultsDiv.querySelectorAll('.list-group-item:not(.disabled)');
+    
+    if (searchResultItems.length === 0) return;
+    
+    // Remove previous selection
+    searchResultItems.forEach(item => item.classList.remove('active'));
+    
+    if (direction === 'down') {
+        selectedSearchIndex = (selectedSearchIndex + 1) % searchResultItems.length;
+    } else if (direction === 'up') {
+        selectedSearchIndex = selectedSearchIndex <= 0 ? searchResultItems.length - 1 : selectedSearchIndex - 1;
+    }
+    
+    // Add selection to current item
+    if (selectedSearchIndex >= 0 && selectedSearchIndex < searchResultItems.length) {
+        searchResultItems[selectedSearchIndex].classList.add('active');
+        searchResultItems[selectedSearchIndex].scrollIntoView({ block: 'nearest' });
+    }
+}
+
+function selectCurrentSearchResult() {
+    if (selectedSearchIndex >= 0 && selectedSearchIndex < searchResultItems.length) {
+        searchResultItems[selectedSearchIndex].click();
+        clearSearchResults();
+    }
+}
+
+function clearSearchResults() {
+    selectedSearchIndex = -1;
+    searchResultItems = [];
+    const searchResultsDiv = document.getElementById('searchResults');
+    searchResultsDiv.innerHTML = '';
+    searchResultsDiv.classList.add('d-none');
+    document.getElementById('searchBarang').value = '';
+}
+
+// Reset search navigation when new results are loaded
+function resetSearchNavigation() {
+    selectedSearchIndex = -1;
+    searchResultItems = [];
 }
 
 // Function to search for products by exact barcode
@@ -1006,8 +1461,26 @@ document.addEventListener('DOMContentLoaded', async function() {
         });
     });
     
-    // Register keyboard shortcuts
-    document.addEventListener('keydown', handleShortcut);
+    // Register keyboard shortcuts with proper cleanup and re-registration
+    function registerKeyboardShortcuts() {
+        // Remove existing listener to prevent duplicates
+        document.removeEventListener('keydown', handleShortcut);
+        // Add the listener
+        document.addEventListener('keydown', handleShortcut);
+    }
+    
+    // Initial registration
+    registerKeyboardShortcuts();
+    
+    // Re-register shortcuts when window regains focus to ensure they always work
+    window.addEventListener('focus', function() {
+        setTimeout(registerKeyboardShortcuts, 100);
+    });
+    
+    // Also re-register when clicking anywhere on the document
+    document.addEventListener('click', function() {
+        registerKeyboardShortcuts();
+    });
     
     // Barcode scanning detection
     document.addEventListener('keypress', function(e) {
@@ -1029,15 +1502,71 @@ document.addEventListener('DOMContentLoaded', async function() {
 
     
     // Enhanced Enter key handling in search field
-    document.getElementById('searchBarang').addEventListener('keypress', function(e) {
-        if (e.key === 'Enter') {
-            e.preventDefault();
-            const query = this.value.trim();
-            if (query.length > 0) {
-                searchBarangByExactBarcode(query, false);
-            }
+    // Enhanced barcode scanner support
+let searchTimeout;
+let lastSearchQuery = '';
+
+document.getElementById('searchBarang').addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') {
+        e.preventDefault();
+        const query = this.value.trim();
+        
+        // For barcode scanner: if query is different from last search, trigger search first
+        if (query !== lastSearchQuery && query.length > 0) {
+            searchBarangApiCall(query);
+            lastSearchQuery = query;
         }
-    });
+        
+        // Wait a bit for search results, then try to add item
+        setTimeout(() => {
+            const searchResultsDiv = document.getElementById('searchResults');
+            const items = Array.from(searchResultsDiv.querySelectorAll('.list-group-item:not(.disabled)'));
+            
+            if (items.length === 1) {
+                // Single result - add it
+                const btn = items[0].querySelector('button[data-add]');
+                if (btn) btn.click();
+                else items[0].click();
+                clearSearchResults();
+                return;
+            }
+            
+            // Multiple results - check for exact code match
+            let found = false;
+            for (const item of items) {
+                const kode = item.getAttribute('data-kode') || '';
+                if (kode.toLowerCase() === query.toLowerCase()) {
+                    const btn = item.querySelector('button[data-add]');
+                    if (btn) btn.click();
+                    else item.click();
+                    clearSearchResults();
+                    found = true;
+                    break;
+                }
+            }
+            
+            // If no exact match but query looks like barcode (numbers/letters), search again
+            if (!found && /^[A-Za-z0-9]+$/.test(query)) {
+                searchBarangApiCall(query);
+            }
+        }, 100);
+    }
+});
+
+// Debounced search for better barcode scanner support
+document.getElementById('searchBarang').addEventListener('input', function() {
+    const query = this.value.trim();
+    lastSearchQuery = query;
+    
+    clearTimeout(searchTimeout);
+    if (query.length > 0) {
+        searchTimeout = setTimeout(() => {
+            searchBarangApiCall(query);
+        }, 150); // Reduced delay for faster barcode scanning
+    } else {
+        clearSearchResults();
+    }
+});
 
     document.getElementById('searchBarang').addEventListener('input', function() {
         clearTimeout(searchTimeout);
@@ -1104,8 +1633,13 @@ function searchBarangApiCall() {
             showToast('Peringatan', 'Barang Tidak Ditemukan', 'error');
         }
         searchResultsDiv.innerHTML = html;
+        resetSearchNavigation(); // Reset navigation state when new results are loaded
     })
-    .catch(error => { console.error("Error loading search results:", error); searchResultsDiv.innerHTML = '<div class="list-group-item text-danger">Terjadi kesalahan saat mencari barang.</div>';});
+    .catch(error => { 
+        console.error("Error loading search results:", error); 
+        searchResultsDiv.innerHTML = '<div class="list-group-item text-danger">Terjadi kesalahan saat mencari barang.</div>';
+        resetSearchNavigation();
+    });
 }
 
 function loadQuickAddItems() {
@@ -1156,6 +1690,45 @@ function loadQuickAddItems() {
         } else { quickAddDiv.innerHTML = '<p class="text-muted p-3"><small>Tidak ada barang.</small></p>'; }
     })
     .catch(error => { console.error("Error loading quick add items:", error); quickAddDiv.innerHTML = '<p class="text-danger p-3"><small>Gagal memuat.</small></p>';});
+}
+// Format input jumlahBayarInput menjadi format ribuan saat mengetik
+function formatRupiahInput(input) {
+    let raw = input.value.replace(/[^\d]/g, ''); // hanya angka
+    if (raw === '') {
+        input.value = '';
+        return;
+    }
+    // Simpan posisi caret relatif ke akhir
+    let caret = input.selectionStart;
+    let prevLength = input.value.length;
+    // Format angka
+    let formatted = parseInt(raw, 10).toLocaleString('id-ID');
+    input.value = 'Rp ' + formatted;
+    // Hitung selisih panjang
+    let newLength = input.value.length;
+    caret += newLength - prevLength;
+    // Pastikan caret tidak sebelum "Rp "
+    if (caret < 4) caret = newLength;
+    input.setSelectionRange(caret, caret);
+}
+
+// Highlight cart row and tbody effect
+function highlightCartRow(itemId) {
+    setTimeout(() => {
+        console.log("HIGHTLIGHTED");
+        const cartItemsContainer = document.getElementById('cartItemsContainer');
+        if (!cartItemsContainer) return;
+        const row = cartItemsContainer.querySelector(`tr[data-item-id='${itemId}']`);
+        if (row) {
+            console.log(row);
+            // Highlight only the row with direct background-color
+            const prevColor = row.style.backgroundColor;
+            row.style.backgroundColor = '#fff7b2'; // soft yellow
+            setTimeout(() => {
+                row.style.backgroundColor = prevColor || '';
+            }, 750);
+        }
+    }, 50);
 }
 </script>
 {% endblock %}
