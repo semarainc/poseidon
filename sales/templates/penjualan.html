@@ -333,6 +333,16 @@
 </div>
 <style>
 #modalPrintStruk .display-5 { font-size: 2.5rem; }
+#modalPrintStruk .btn:focus-visible {
+  outline: 3px solid #0d6efd;
+  outline-offset: 2px;
+  box-shadow: 0 0 0 0.2rem rgba(13,110,253,.25);
+  z-index: 2;
+}
+#modalPrintStruk .btn:focus:not(:focus-visible) {
+  outline: none;
+  box-shadow: none;
+}
 </style>
 
 <!-- Area struk yang hanya muncul saat print -->
@@ -1083,6 +1093,17 @@ function konfirmasiDanBayarCurrentQueue() {
                     }
                 });
             }
+            // ENTER key triggers focused button in modalPrintStruk
+            const modalPrintStrukEl = document.getElementById('modalPrintStruk');
+            modalPrintStrukEl.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter') {
+                    const active = document.activeElement;
+                    if (modalPrintStrukEl.contains(active) && active.tagName === 'BUTTON' && !active.disabled) {
+                        e.preventDefault();
+                        active.click();
+                    }
+                }
+            });
             // Jika user refresh/tab close sebelum klik Tutup, auto-hapus antrean di backend
             let queueDeleted = false;
             function autoDeleteQueueOnUnload(e) {
@@ -1510,28 +1531,26 @@ document.getElementById('searchBarang').addEventListener('keydown', function(e) 
     if (e.key === 'Enter') {
         e.preventDefault();
         const query = this.value.trim();
-        
-        // For barcode scanner: if query is different from last search, trigger search first
+        // Jika input kemungkinan barcode (angka/huruf, panjang > 3), langsung pakai searchBarangByExactBarcode
+        if (/^[A-Za-z0-9]{4,}$/.test(query)) {
+            searchBarangByExactBarcode(query, true);
+            return;
+        }
+        // Jika bukan barcode, tetap lakukan pencarian dan auto-add jika hasil satu
         if (query !== lastSearchQuery && query.length > 0) {
             searchBarangApiCall(query);
             lastSearchQuery = query;
         }
-        
-        // Wait a bit for search results, then try to add item
         setTimeout(() => {
             const searchResultsDiv = document.getElementById('searchResults');
             const items = Array.from(searchResultsDiv.querySelectorAll('.list-group-item:not(.disabled)'));
-            
             if (items.length === 1) {
-                // Single result - add it
                 const btn = items[0].querySelector('button[data-add]');
                 if (btn) btn.click();
                 else items[0].click();
                 clearSearchResults();
                 return;
             }
-            
-            // Multiple results - check for exact code match
             let found = false;
             for (const item of items) {
                 const kode = item.getAttribute('data-kode') || '';
@@ -1544,8 +1563,6 @@ document.getElementById('searchBarang').addEventListener('keydown', function(e) 
                     break;
                 }
             }
-            
-            // If no exact match but query looks like barcode (numbers/letters), search again
             if (!found && /^[A-Za-z0-9]+$/.test(query)) {
                 searchBarangApiCall(query);
             }
