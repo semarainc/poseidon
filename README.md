@@ -1,5 +1,6 @@
 # POSEIDON 🛒 — Point-Of-Sale System
-Version: 1.0
+Version: 1.2
+
 ![Python](https://img.shields.io/badge/python-3.12-blue?logo=python&logoColor=white)
 ![Flask](https://img.shields.io/badge/Flask-2.x-green?logo=flask&logoColor=white)
 ![License](https://img.shields.io/badge/license-MIT-orange)
