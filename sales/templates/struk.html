@@ -11,6 +11,20 @@
             body { 
                 margin: 0; 
                 padding: 0;
+                font-family: 'Consolas', 'Courier New', Courier, monospace !important;
+                font-weight: 700 !important;
+                color: #000 !important;
+            }
+            .struk-container, .struk-header, .struk-info, .struk-items, .item-header, .item-row, .struk-total, .struk-footer {
+                font-family: 'Consolas', 'Courier New', Courier, monospace !important;
+                font-weight: 700 !important;
+                color: #000 !important;
+            }
+            .struk-header h2, .item-header, .item-row, .struk-total .grand-total, .struk-footer {
+                font-weight: 900 !important;
+            }
+            .struk-header h2, .item-header, .item-row, .struk-total .grand-total {
+                letter-spacing: 0.5px;
             }
             .struk-container { 
                 width: 80mm !important; 
@@ -44,7 +58,8 @@
             padding: 15px;
             border: 1px solid #ddd;
             box-shadow: 0 0 10px rgba(0,0,0,0.1);
-            font-family: 'Courier New', monospace;
+            font-family: 'Consolas', 'Courier New', Courier, monospace;
+            font-weight: 700;
             background: white;
         }
         
@@ -145,10 +160,10 @@
         <!-- Tombol Print -->
         <div class="text-center no-print">
             <button class="btn btn-success btn-print" onclick="window.print()">
-                <i class="fas fa-print"></i> Cetak Struk
+                <i class="fas fa-print"></i> Cetak Struk [Enter]
             </button>
             <a href="{{ url_for('sales.penjualan') }}" class="btn btn-secondary">
-                <i class="fas fa-arrow-left"></i> Kembali ke Penjualan
+                <i class="fas fa-arrow-left"></i> Kembali ke Penjualan [Esc]
             </a>
         </div>
 
@@ -347,6 +362,31 @@
                     // window.location.href = "{{ url_for('sales.penjualan') }}"; // Don't redirect immediately, user might want to see the web page
                 }, 1000);
             }
+        });
+
+        // Keyboard shortcut: Enter = print, ESC = back
+        function handleStrukKeydown(event) {
+            if (event.key === 'Enter') {
+                // Hindari trigger jika ada modal/input aktif
+                if (document.activeElement.tagName !== 'INPUT' && document.activeElement.tagName !== 'TEXTAREA') {
+                    event.preventDefault();
+                    window.print();
+                }
+            } else if (event.key === 'Escape') {
+                event.preventDefault();
+                window.location.href = "{{ url_for('sales.penjualan') }}";
+            }
+        }
+        // Daftarkan ulang handler setiap window focus agar selalu aktif
+        function ensureKeydownActive() {
+            window.removeEventListener('keydown', handleStrukKeydown);
+            window.addEventListener('keydown', handleStrukKeydown);
+        }
+        ensureKeydownActive();
+        window.addEventListener('focus', ensureKeydownActive);
+        // Untuk jaga-jaga, juga aktifkan saat document visibility berubah
+        document.addEventListener('visibilitychange', function() {
+            if (!document.hidden) ensureKeydownActive();
         });
     </script>
 </body>
