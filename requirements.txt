@@ -7,5 +7,6 @@ Pillow
 python-dotenv
 flask-login
 openpyxl
+psycopg2
 # Untuk Linux/Unix, uwsgi akan diinstall dari requirements.txt
 uwsgi; platform_system != 'Windows'
