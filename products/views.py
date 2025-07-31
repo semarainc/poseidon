@@ -34,8 +34,8 @@ def download_template():
     wb = Workbook()
     ws = wb.active
     ws.title = 'Barang'
-    ws.append(['kode_barang', 'nama_barang', 'kategori', 'stok', 'harga_pokok', 'harga_jual', 'harga_grosir', 'satuan', 'supplier', 'tanggal_kadaluarsa'])
-    ws.append(['SKP001', 'Sekop Kecil', 'Alat Taman', 25, 25000, 35000, 30000, 'Pcs', 'CV Taman Subur', '2025-12-31'])
+    ws.append(['kode_barang', 'nama_barang', 'kategori', 'stok', 'stok_minimal_grosir', 'harga_pokok', 'harga_jual', 'harga_grosir', 'satuan', 'supplier', 'tanggal_kadaluarsa'])
+    ws.append(['SKP001', 'Sekop Kecil', 'Alat Taman', 25, 24, 25000, 35000, 30000, 'Pcs', 'CV Taman Subur', '2025-12-31'])
     wb.save(output)
     output.seek(0)
     from flask import send_file
@@ -99,6 +99,8 @@ def apply_bulk_upload():
                     db.session.flush()  # flush agar dapat id tanpa commit dulu
                 except Exception:
                     db.session.rollback()
+                    traceback.print_exc()
+                    print("Error Occured: ", e)
                     # Cegah race condition: cek ulang (ada kemungkinan supplier ditambah oleh proses lain)
                     supplier_obj = Supplier.query.filter(func.lower(Supplier.nama) == supplier_nama.lower()).first()
                     if not supplier_obj:
@@ -124,6 +126,7 @@ def apply_bulk_upload():
                     nama_barang=item.get('nama_barang'),
                     kategori=kategori,
                     stok=float(item.get('stok') or 0),
+                    batas_minimal_grosir=float(item.get('stok_minimal_grosir') or 0),
                     harga_pokok=float(item.get('harga_pokok') or 0),
                     harga_jual=float(item.get('harga_jual') or 0),
                     harga_grosir=float(item.get('harga_grosir') or 0),
@@ -138,6 +141,7 @@ def apply_bulk_upload():
                 barang.nama_barang = item.get('nama_barang')
                 barang.kategori = kategori
                 barang.stok = float(item.get('stok') or 0)
+                barang.batas_minimal_grosir = float(item.get('stok_minimal_grosir') or 0)
                 barang.harga_pokok = float(item.get('harga_pokok') or 0)
                 barang.harga_jual = float(item.get('harga_jual') or 0)
                 barang.harga_grosir = float(item.get('harga_grosir') or 0)
@@ -149,6 +153,8 @@ def apply_bulk_upload():
         except Exception as e:
             db.session.rollback()
             failed += 1
+            print("Error Occured", e)
+            traceback.print_exc()
     return jsonify({'success': True, 'inserted': inserted, 'updated': updated, 'failed': failed})
 
 # --- MANAJEMEN BARANG ---
