@@ -92,15 +92,25 @@ def cari_barang_api():
         qty_sum = func.coalesce(func.sum(DetailPenjualan.jumlah), 0).label('total_qty')
         query_builder = db.session.query(Barang, qty_sum).outerjoin(DetailPenjualan, DetailPenjualan.barang_id == Barang.id)
         if query_param:
-            query_builder = query_builder.filter(or_(Barang.nama_barang.contains(query_param), Barang.kode_barang.contains(query_param)))
+            query_param_like = f"%{query_param}%"
+            query_builder = query_builder.filter(
+                or_(
+                    Barang.nama_barang.ilike(query_param_like),
+                    Barang.kode_barang.ilike(query_param_like)
+                )
+            )
         query_builder = query_builder.group_by(Barang.id).order_by(qty_sum.desc())
         rows = query_builder.limit(limit).all()
         barang_list = [row[0] for row in rows]
     else:
         query_builder = Barang.query
         if query_param:
+            query_param_like = f"%{query_param}%"
             query_builder = query_builder.filter(
-                or_(Barang.nama_barang.contains(query_param), Barang.kode_barang.contains(query_param))
+                or_(
+                    Barang.nama_barang.ilike(query_param_like),
+                    Barang.kode_barang.ilike(query_param_like)
+                )
             )
         barang_list = query_builder.order_by(Barang.nama_barang).limit(limit).all()
     results = [barang_item.to_dict() for barang_item in barang_list] 
