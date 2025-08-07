@@ -17,9 +17,14 @@
                     <div class="row">
                         <div class="col-md-6 mb-3">
                             <label for="kode_barang" class="form-label">Kode Barang *</label>
-                            <input type="text" class="form-control" id="kode_barang" name="kode_barang" 
-                                   value="{{ barang.kode_barang if barang and not barang is mapping else (barang.get('kode_barang') if barang is mapping else '') }}" required>
-                            <div class="form-text">Gunakan kode unik untuk setiap barang</div>
+                            <div class="input-group">
+                                <input type="text" class="form-control" id="kode_barang" name="kode_barang" 
+                                       value="{{ barang.kode_barang if barang and not barang is mapping else (barang.get('kode_barang') if barang is mapping else '') }}" required>
+                                <button class="btn btn-outline-primary" type="button" id="generateKodeBtn" title="Generate Kode Barang Otomatis">
+                                    <i class="fas fa-magic me-1"></i>
+                                </button>
+                            </div>
+                            <div class="form-text">Gunakan kode unik untuk setiap barang. Klik tombol Generate untuk membuat kode otomatis.</div>
                         </div>
                         <div class="col-md-6 mb-3">
                             <label for="kategori" class="form-label">Kategori *</label>
@@ -299,36 +304,41 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 </script>
 
-{% if action == 'Tambah' and not (barang and (barang.kode_barang if not barang is mapping else barang.get('kode_barang'))) %}
 <script>
-    shouldGenerateKodeBarang = true;
-</script>
-{% endif %}
-<script>
-
+// Fungsi untuk generate kode barang (dipanggil manual lewat tombol)
 function generateKodeBarang() {
     const kategoriVal = document.getElementById('kategori').value;
     const namaBarangVal = document.getElementById('nama_barang').value;
     
-    if (kategoriVal && namaBarangVal) {
-        let prefix = '';
-        switch(kategoriVal) {
-            case 'Alat Taman': prefix = 'ALT'; break;
-            case 'Alat Semprot': prefix = 'ALS'; break;
-            case 'Benih': prefix = 'BNH'; break;
-            case 'Pupuk': prefix = 'PPK'; break;
-            case 'Pestisida': prefix = 'PST'; break;
-            case 'Irigasi': prefix = 'IRG'; break;
-            default: prefix = 'LYN'; break;
-        }
-        const namaShort = namaBarangVal.substring(0, 3).toUpperCase().replace(/[^A-Z0-9]/g, '');
-        const randomNum = Math.floor(Math.random() * 100).toString().padStart(2, '0');
-        const kodeBarangVal = prefix + namaShort + randomNum;
-        document.getElementById('kode_barang').value = kodeBarangVal;
+    if (!kategoriVal) {
+        showToast('Peringatan', 'Silakan pilih kategori terlebih dahulu!', 'warning');
+        return;
     }
+    
+    if (!namaBarangVal) {
+        showToast('Peringatan', 'Silakan isi nama barang terlebih dahulu!', 'warning');
+        return;
+    }
+    
+    // Generate kode barang
+    let prefix = '';
+    switch(kategoriVal) {
+        case 'Alat Taman': prefix = 'ALT'; break;
+        case 'Alat Semprot': prefix = 'ALS'; break;
+        case 'Benih': prefix = 'BNH'; break;
+        case 'Pupuk': prefix = 'PPK'; break;
+        case 'Pestisida': prefix = 'PST'; break;
+        case 'Irigasi': prefix = 'IRG'; break;
+        default: prefix = 'LYN'; break;
+    }
+    
+    const namaShort = namaBarangVal.substring(0, 3).toUpperCase().replace(/[^A-Z0-9]/g, '') || 'XXX';
+    const randomNum = Math.floor(Math.random() * 100).toString().padStart(2, '0');
+    const kodeBarangVal = prefix + namaShort + randomNum;
+    
+    document.getElementById('kode_barang').value = kodeBarangVal;
+    showToast('Sukses', 'Kode barang berhasil di-generate: ' + kodeBarangVal, 'success');
 }
-
-
 
 // Fungsi untuk menghitung persentase keuntungan
 function hitungKeuntungan() {
@@ -824,10 +834,6 @@ function editItem() {
 
 // Delete item
 function deleteItem(type, id) {
-    if (!confirm('Apakah Anda yakin ingin menghapus item ini?')) {
-        return;
-    }
-    
     if (type === 'satuan') {
         // Find the item
         const itemIndex = satuanItems.findIndex(item => item.id === parseInt(id));
@@ -1125,13 +1131,12 @@ document.addEventListener('DOMContentLoaded', function() {
         } else {
             console.error('Satuan modal element not found!');
         }
-    })
+    });
     
-    // Set up event listeners for kode barang generation if needed
-    if (shouldGenerateKodeBarang) {
-        document.getElementById('kategori').addEventListener('change', generateKodeBarang);
-        document.getElementById('nama_barang').addEventListener('input', generateKodeBarang);
-    }
+    // Event listener untuk tombol generate kode barang
+    document.getElementById('generateKodeBtn').addEventListener('click', function() {
+        generateKodeBarang();
+    });
 });
 
 function attachPreviewListener(el){
