@@ -105,10 +105,23 @@
 }
 </style>
 <div class="row">
-    <div class="col-md-12">
+    <div class="col-md-12 d-flex justify-content-between align-items-center">
         <h2 class="mb-4">
             <i class="fas fa-cash-register me-2"></i>Transaksi Penjualan
         </h2>
+        <div class="view-mode-toggle d-flex align-items-center gap-2 mb-4">
+            <span class="text-muted small">Mode Tampilan:</span>
+            <div class="btn-group btn-group-sm" role="group" aria-label="View Mode Toggle">
+                <input type="radio" class="btn-check" name="viewMode" id="classicMode" value="classic" onchange="switchViewMode('classic')">
+                <label class="btn btn-outline-secondary" for="classicMode">
+                    <i class="fas fa-th-list me-1"></i>Classic
+                </label>
+                <input type="radio" class="btn-check" name="viewMode" id="modernMode" value="modern" checked onchange="switchViewMode('modern')">
+                <label class="btn btn-outline-primary" for="modernMode">
+                    <i class="fas fa-desktop me-1"></i>Modern
+                </label>
+            </div>
+        </div>
     </div>
 </div>
 
@@ -362,6 +375,267 @@
 let salesQueues = []; 
 let activeQueueId = null;
 
+// === VIEW MODE SWITCHING ===
+async function switchViewMode(mode) {
+    console.log('Switching view mode to:', mode);
+    console.log('Current activeQueueId:', activeQueueId);
+    console.log('Current salesQueues before switch:', JSON.stringify(salesQueues, null, 2));
+    
+    // Save current cart to backend first
+    if (activeQueueId) {
+        console.log('Saving cart to backend before switch...');
+        await updateQueueCartToBackend(activeQueueId);
+        console.log('Cart saved to backend');
+    }
+    
+    // Save current state before switching
+    const currentState = {
+        salesQueues: salesQueues,
+        activeQueueId: activeQueueId,
+        pelangganId: document.getElementById('pelangganSelect')?.value || '',
+        metodePembayaran: document.getElementById('metodePembayaran')?.value || 'tunai'
+    };
+    
+    console.log('Modern: Saving state to sessionStorage before switch:', JSON.stringify(currentState, null, 2));
+    
+    // Ensure cart items have both modern and classic format fields
+    currentState.salesQueues.forEach(queue => {
+        if (queue.cart && Array.isArray(queue.cart)) {
+            queue.cart.forEach(item => {
+                // Ensure both quantity fields exist
+                if (item.jumlah !== undefined && item.quantity === undefined) {
+                    item.quantity = item.jumlah;
+                }
+                if (item.quantity !== undefined && item.jumlah === undefined) {
+                    item.jumlah = item.quantity;
+                }
+                
+                // Ensure both name fields exist
+                if (item.nama && !item.name) {
+                    item.name = item.nama;
+                }
+                if (item.name && !item.nama) {
+                    item.nama = item.name;
+                }
+                
+                // Ensure both code fields exist
+                if (item.kode && !item.code) {
+                    item.code = item.kode;
+                }
+                if (item.code && !item.kode) {
+                    item.kode = item.code;
+                }
+                
+                // Ensure both price fields exist
+                if (item.harga !== undefined && item.unitPrice === undefined) {
+                    item.unitPrice = item.harga;
+                }
+                if (item.unitPrice !== undefined && item.harga === undefined) {
+                    item.harga = item.unitPrice;
+                }
+                
+                // Calculate total if missing - use current quantity and price
+                const currentQty = item.jumlah || item.quantity || 0;
+                const currentPrice = item.harga || item.unitPrice || 0;
+                if (!item.total || item.total === 0) {
+                    item.total = currentQty * currentPrice;
+                }
+                
+                // Ensure price type mapping
+                if (item.tipe_harga && !item.priceType) {
+                    item.priceType = item.tipe_harga === 'grosir' ? 'Grosir' : 'Eceran';
+                }
+                if (item.priceType && !item.tipe_harga) {
+                    item.tipe_harga = item.priceType.toLowerCase();
+                }
+                
+                // Ensure stock fields are preserved during transition
+                if (!item.stok_awal && item.originalProduct?.stok) {
+                    item.stok_awal = item.originalProduct.stok;
+                }
+                if (!item.originalProduct && item.stok_awal) {
+                    item.originalProduct = {
+                        id: item.id,
+                        stok: item.stok_awal,
+                        harga_jual: item.harga_eceran || item.unitPrice || item.harga,
+                        harga_grosir: item.harga_grosir,
+                        batas_minimal_grosir: item.batas_minimal_grosir || 10
+                    };
+                }
+                
+                console.log('Modern: Prepared item for transition with stock:', item.stok_awal, 'originalProduct.stok:', item.originalProduct?.stok);
+                console.log('Modern: Prepared item for transition:', JSON.stringify(item, null, 2));
+            });
+        }
+    });
+    
+    // Set cookie to remember preference
+    document.cookie = `sales_view_mode=${mode}; path=/; max-age=31536000`; // 1 year
+    
+    // Store state in sessionStorage for seamless transition
+    sessionStorage.setItem('salesTransitionState', JSON.stringify(currentState));
+    
+    // Show loading overlay
+    showLoadingOverlay();
+    
+    // Redirect to sales page (views.py will read cookie and render appropriate template)
+    window.location.href = '/sales/penjualan';
+}
+
+function getCookie(name) {
+    const value = `; ${document.cookie}`;
+    const parts = value.split(`; ${name}=`);
+    if (parts.length === 2) return parts.pop().split(';').shift();
+    return null;
+}
+
+function restoreStateAfterTransition() {
+    const savedState = sessionStorage.getItem('salesTransitionState');
+    console.log('Restoring state from sessionStorage:', savedState);
+    
+    if (savedState) {
+        try {
+            const state = JSON.parse(savedState);
+            console.log('Parsed state:', state);
+            
+            // Restore queues and active queue
+            if (state.salesQueues && state.salesQueues.length > 0) {
+                console.log('Restoring salesQueues from state...');
+                // Normalize cart data format and ensure proper arrays
+                salesQueues = state.salesQueues.map(queue => ({
+                    ...queue,
+                    cart: Array.isArray(queue.cart) ? queue.cart.map(item => normalizeCartItemModern(item)) : []
+                }));
+                activeQueueId = state.activeQueueId;
+                
+                console.log('Restored salesQueues:', JSON.stringify(salesQueues, null, 2));
+                console.log('Restored activeQueueId:', activeQueueId);
+                
+                // Restore UI selections
+                if (state.pelangganId) {
+                    const pelangganSelect = document.getElementById('pelangganSelect');
+                    if (pelangganSelect) pelangganSelect.value = state.pelangganId;
+                }
+                
+                if (state.metodePembayaran) {
+                    const metodeSelect = document.getElementById('metodePembayaran');
+                    if (metodeSelect) metodeSelect.value = state.metodePembayaran;
+                }
+                
+                // Re-render UI with restored state
+                renderQueueTabs();
+                updateCartDisplay();
+                toggleCashPaymentFields();
+                
+                // Focus on search input after state restoration
+                setTimeout(() => {
+                    const searchInput = document.getElementById('searchBarang');
+                    if (searchInput) searchInput.focus();
+                }, 100);
+                
+                console.log('State restoration completed');
+            } else {
+                console.log('No salesQueues in saved state, loading from backend...');
+            }
+            
+            // Clear the saved state
+            sessionStorage.removeItem('salesTransitionState');
+        } catch (e) {
+            console.error('Error restoring transition state:', e);
+        }
+    } else {
+        console.log('No saved state found in sessionStorage');
+    }
+}
+
+// Normalize cart item to ensure consistent format for modern template
+function normalizeCartItemModern(item) {
+    if (!item) return null;
+    
+    console.log('Modern: Normalizing item:', JSON.stringify(item, null, 2));
+    
+    // Prioritize the correct quantity value based on source template
+    let quantity;
+    if (item.quantity !== undefined && item.jumlah !== undefined) {
+        console.log('Modern: Both quantity fields exist - quantity:', item.quantity, 'jumlah:', item.jumlah);
+        // If both exist, use the one that matches the total calculation
+        const qtyFromTotal = item.total && item.unitPrice ? item.total / item.unitPrice : 0;
+        const qtyDiffFromQuantity = Math.abs(qtyFromTotal - item.quantity);
+        const qtyDiffFromJumlah = Math.abs(qtyFromTotal - item.jumlah);
+        quantity = qtyDiffFromQuantity <= qtyDiffFromJumlah ? item.quantity : item.jumlah;
+        console.log('Modern: Selected quantity:', quantity, 'based on total calculation');
+    } else {
+        quantity = parseFloat(item.quantity || item.jumlah || 0);
+        console.log('Modern: Using single quantity field:', quantity);
+    }
+    
+    // Get pricing information
+    const hargaEceran = parseFloat(item.harga_eceran || item.originalProduct?.harga_jual || item.unitPrice || item.harga || 0);
+    const hargaGrosir = item.harga_grosir ? parseFloat(item.harga_grosir) : null;
+    const batasMinimalGrosir = item.batas_minimal_grosir || 10;
+    
+    // Prioritize stock information from multiple sources
+    let stockAwal = 0;
+    if (item.stok_awal !== undefined && item.stok_awal !== null && item.stok_awal !== 0) {
+        stockAwal = parseFloat(item.stok_awal);
+    } else if (item.originalProduct?.stok !== undefined && item.originalProduct.stok !== null && item.originalProduct.stok !== 0) {
+        stockAwal = parseFloat(item.originalProduct.stok);
+    } else if (item.stok !== undefined && item.stok !== null && item.stok !== 0) {
+        stockAwal = parseFloat(item.stok);
+    } else {
+        // Last resort: if all stock fields are 0 or missing, try to preserve any existing value
+        stockAwal = parseFloat(item.stok_awal || item.originalProduct?.stok || item.stok || 0);
+    }
+    
+    console.log('Modern: Stock info - final stockAwal:', stockAwal, 'from item.stok_awal:', item.stok_awal, 'originalProduct.stok:', item.originalProduct?.stok, 'item.stok:', item.stok);
+    
+    // Recalculate price and type based on current quantity
+    let currentPrice = hargaEceran;
+    let priceType = 'eceran';
+    
+    if (hargaGrosir && quantity >= batasMinimalGrosir) {
+        currentPrice = hargaGrosir;
+        priceType = 'grosir';
+    }
+    
+    const normalizedItem = {
+        // Modern template format (primary)
+        id: item.id,
+        nama: item.nama || item.name || item.nama_barang || '',
+        kode: item.kode || item.code || item.kode_barang || '',
+        harga: currentPrice,
+        jumlah: quantity,
+        stok_awal: stockAwal,
+        satuan: item.satuan || 'Pcs',
+        harga_grosir: hargaGrosir,
+        batas_minimal_grosir: batasMinimalGrosir,
+        tipe_harga: priceType,
+        harga_eceran: hargaEceran,
+        
+        // Classic template format (for compatibility)
+        name: item.nama || item.name || item.nama_barang || '',
+        code: item.kode || item.code || item.kode_barang || '',
+        quantity: quantity,
+        unitPrice: currentPrice,
+        total: currentPrice * quantity,
+        priceType: priceType === 'grosir' ? 'Grosir' : 'Eceran',
+        
+        // Preserve original product data for stock validation
+        originalProduct: item.originalProduct || {
+            id: item.id,
+            harga_jual: hargaEceran,
+            harga_grosir: hargaGrosir,
+            batas_minimal_grosir: batasMinimalGrosir,
+            stok: stockAwal
+        }
+    };
+    
+    console.log('Modern: Normalized item with price type:', normalizedItem.tipe_harga, 'quantity:', normalizedItem.jumlah, 'price:', normalizedItem.harga);
+    
+    console.log('Modern: Normalized item:', JSON.stringify(normalizedItem, null, 2));
+    return normalizedItem;
+}
+
 function goToPreviousQueue() {
     if (!salesQueues.length || !activeQueueId) return;
     const idx = salesQueues.findIndex(q => q.id === activeQueueId);
@@ -404,7 +678,7 @@ async function syncQueuesFromBackend() {
             uniqueQueues.push({
                 id: 'antrian-' + q.id,
                 name: q.nama_antrian,
-                cart: [],
+                cart: [], // Always initialize as empty array
                 customerId: '',
                 paymentMethod: 'tunai',
                 backendId: q.id
@@ -498,10 +772,29 @@ async function switchQueue(queueId) {
         const res = await fetch(`/sales/antrian/${queue.backendId}/ambil`);
         const data = await res.json();
         if (data.data_antrian) {
-            queue.cart = JSON.parse(data.data_antrian);
+            try {
+                const parsed = JSON.parse(data.data_antrian);
+                if (Array.isArray(parsed)) {
+                    // Old format: direct array
+                    queue.cart = parsed.map(item => normalizeCartItemModern(item));
+                } else if (parsed && typeof parsed === 'object') {
+                    // New format: object with cart and paymentMethod
+                    queue.cart = Array.isArray(parsed.cart) ? parsed.cart.map(item => normalizeCartItemModern(item)) : [];
+                    queue.paymentMethod = parsed.paymentMethod || 'tunai';
+                } else {
+                    queue.cart = [];
+                }
+            } catch (e) {
+                console.warn('Failed to parse cart data:', e);
+                queue.cart = [];
+            }
         } else {
             queue.cart = [];
         }
+    }
+    // Ensure cart is always an array
+    if (!queue || !Array.isArray(queue.cart)) {
+        if (queue) queue.cart = [];
     }
     renderQueueTabs();
     updateCartDisplay();
@@ -511,19 +804,29 @@ async function updateQueueCartToBackend(queueId) {
     const queue = salesQueues.find(q => q.id === queueId);
     if (!queue) return;
 
+    console.log('Modern: Saving cart to backend for queue:', queueId);
+    console.log('Modern: Cart data being saved:', JSON.stringify(queue.cart, null, 2));
+
+    const persisted = {
+        cart: queue.cart || [],
+        paymentMethod: queue.paymentMethod || 'tunai'
+    };
     const payload = {
         nama_antrian: queue.name,
-        data_antrian: JSON.stringify(queue.cart)
+        data_antrian: JSON.stringify(persisted)
     };
 
     try {
         if (queue.backendId) {
             // Update queue that already exists in backend
-            await fetch(`/sales/antrian/${queue.backendId}/update`, {
+            const response = await fetch(`/sales/antrian/${queue.backendId}/update`, {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify(payload)
             });
+            if (!response.ok) {
+                console.error('Failed to update queue in backend:', response.statusText);
+            }
         } else {
             // Fallback: create new queue
             const res = await fetch('/sales/antrian/tambah', {
@@ -684,20 +987,32 @@ function addToCart(id, nama, kode, harga, stok, satuan, hargaGrosir, batasMinima
             alert(`Stok ${nama} tidak mencukupi (tersisa: ${itemOriginalStock}, di keranjang: ${existingItem.jumlah}).`); return; 
         }
     } else {
-        // Item baru, gunakan harga normal
+        // Item baru, periksa apakah harus langsung menggunakan harga grosir
         const hargaItem = parseFloat(harga) || 0;
+        const hargaGrosirValue = hargaGrosir ? parseFloat(hargaGrosir) : null;
+        const batasGrosir = batasMinimalGrosir || 10;
+        
+        let finalHarga = hargaItem;
+        let tipeHarga = 'eceran';
+        
+        // Jika quantity 1 sudah memenuhi batas grosir, langsung set ke grosir
+        if (hargaGrosirValue && 1 >= batasGrosir) {
+            finalHarga = hargaGrosirValue;
+            tipeHarga = 'grosir';
+        }
+        
         activeQ.cart.push({
             id, 
             nama, 
             kode, 
-            harga: hargaItem, 
+            harga: finalHarga, 
             harga_eceran: hargaItem,
             jumlah: 1, 
             stok_awal: itemOriginalStock,
             satuan: satuan || 'Pcs',
-            harga_grosir: hargaGrosir ? parseFloat(hargaGrosir) : null,
-            batas_minimal_grosir: batasMinimalGrosir || 10,
-            tipe_harga: 'eceran' // Default ke eceran
+            harga_grosir: hargaGrosirValue,
+            batas_minimal_grosir: batasGrosir,
+            tipe_harga: tipeHarga
         });
     }
     document.getElementById('searchBarang').value = ''; 
@@ -715,6 +1030,30 @@ function updateCartDisplay() {
     cartItemsContainer.appendChild(cartEmptyMessage); // Re-add empty message template
 
     const activeQ = salesQueues.find(q => q.id === activeQueueId);
+    
+    // Recalculate price types for all items to ensure badges show correctly
+    if (activeQ && activeQ.cart) {
+        activeQ.cart.forEach(item => {
+            // Get wholesale price from item or originalProduct
+            const hargaGrosir = item.harga_grosir || item.originalProduct?.harga_grosir;
+            const batasMinimal = item.batas_minimal_grosir || item.originalProduct?.batas_minimal_grosir || 10;
+            
+            if (hargaGrosir && item.jumlah >= batasMinimal) {
+                if (!item.harga_eceran) { 
+                    item.harga_eceran = item.harga; 
+                }
+                item.harga = parseFloat(hargaGrosir);
+                item.tipe_harga = 'grosir';
+                // Update the item's harga_grosir if it was null
+                if (!item.harga_grosir) {
+                    item.harga_grosir = parseFloat(hargaGrosir);
+                }
+            } else if (item.harga_eceran && item.tipe_harga === 'grosir') {
+                item.harga = item.harga_eceran;
+                item.tipe_harga = 'eceran';
+            }
+        });
+    }
 
     if (!activeQ) { 
         cartEmptyMessage.style.display = 'block';
@@ -821,6 +1160,7 @@ function decrementQuantity(itemId) {
         }
         
         updateCartDisplay(); 
+        highlightCartRow(itemId);
         updateQueueCartToBackend(activeQueueId);
     }
     else if (item && item.jumlah === 1) { removeFromCart(itemId); } 
@@ -833,10 +1173,17 @@ function updateQuantity(itemId, newQuantityStr) {
     const item = activeQ.cart.find(i => i.id === itemId);
     const quantity = parseFloat(newQuantityStr);
 
+    console.log('Modern: updateQuantity called - itemId:', itemId, 'newQuantity:', newQuantityStr, 'parsed:', quantity);
+    console.log('Modern: Current item before update:', JSON.stringify(item, null, 2));
+
     if (item && !isNaN(quantity)) {
         if (quantity <= 0) {
             removeFromCart(itemId); 
         } else if (quantity <= item.stok_awal) {
+            const oldQuantity = item.jumlah;
+            const oldPrice = item.harga;
+            const oldPriceType = item.tipe_harga;
+            
             item.jumlah = quantity;
             
             // Periksa apakah harus menggunakan harga grosir atau eceran
@@ -855,15 +1202,26 @@ function updateQuantity(itemId, newQuantityStr) {
                 }
             }
             
+            console.log('Modern: Quantity updated from', oldQuantity, 'to', item.jumlah);
+            console.log('Modern: Price changed from', oldPrice, '(' + oldPriceType + ') to', item.harga, '(' + item.tipe_harga + ')');
+            console.log('Modern: Updated item:', JSON.stringify(item, null, 2));
+            
             updateCartDisplay();
             updateQueueCartToBackend(activeQueueId);
         } else {
             item.jumlah = item.stok_awal;
             alert(`Stok ${item.nama} hanya ${item.stok_awal}. Jumlah disesuaikan.`);
+            console.log('Modern: Quantity adjusted to stock limit:', item.stok_awal);
             updateCartDisplay();
             updateQueueCartToBackend(activeQueueId);
         }
     } else if (item) { 
+        // Reset input field to current quantity if invalid input
+        const inputField = document.querySelector(`input[onchange*="updateQuantity(${itemId}"]`);
+        if (inputField) {
+            inputField.value = item.jumlah;
+        }
+        console.log('Modern: Invalid quantity input, reset to:', item.jumlah);
         updateCartDisplay(); 
     }
 }
@@ -1463,17 +1821,41 @@ document.getElementById('metodePembayaran').addEventListener('change', toggleCas
 
 
 document.addEventListener('DOMContentLoaded', async function() { 
-    await syncQueuesFromBackend(); // Load antrean kasir dari backend saat page load
-    if (salesQueues.length > 0) {
-        activeQueueId = salesQueues[0].id;
-        await switchQueue(activeQueueId);
-    } else {
-        activeQueueId = null;
-        renderQueueTabs();
-        updateCartDisplay();
+    // Check for saved view mode and set toggle accordingly
+    const savedViewMode = getCookie('sales_view_mode') || 'modern';
+    const classicRadio = document.getElementById('classicMode');
+    const modernRadio = document.getElementById('modernMode');
+    if (savedViewMode === 'classic' && classicRadio) {
+        classicRadio.checked = true;
+        modernRadio.checked = false;
+    } else if (modernRadio) {
+        modernRadio.checked = true;
+        if (classicRadio) classicRadio.checked = false;
+    }
+    
+    // Try to restore state from transition first
+    restoreStateAfterTransition();
+    
+    // If no restored state, load from backend
+    if (salesQueues.length === 0) {
+        await syncQueuesFromBackend(); // Load antrean kasir dari backend saat page load
+        if (salesQueues.length > 0) {
+            activeQueueId = salesQueues[0].id;
+            await switchQueue(activeQueueId);
+        } else {
+            activeQueueId = null;
+            renderQueueTabs();
+            updateCartDisplay();
+        }
     }
     loadQuickAddItems();
     toggleCashPaymentFields(); // Initial call for the main page select
+    
+    // Focus on search input after initial load
+    setTimeout(() => {
+        const searchInput = document.getElementById('searchBarang');
+        if (searchInput) searchInput.focus();
+    }, 200);
     
     // Initialize toast
     document.querySelectorAll('.toast').forEach(toastEl => {

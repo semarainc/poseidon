@@ -78,7 +78,15 @@ def update_antrian(antrian_id):
 @login_required
 def penjualan():
     pelanggan_list = Pelanggan.query.order_by(Pelanggan.nama).all()
-    return render_template('penjualan.html', pelanggan_list=pelanggan_list)
+    
+    # Read view mode preference from cookie
+    view_mode = request.cookies.get('sales_view_mode', 'modern')
+    
+    # Render appropriate template based on preference
+    if view_mode == 'classic':
+        return render_template('penjualan_classic.html', pelanggan_list=pelanggan_list)
+    else:
+        return render_template('penjualan.html', pelanggan_list=pelanggan_list)
 
 @sales_blueprint.route('/api/cari_barang', strict_slashes=False)
 @login_required
