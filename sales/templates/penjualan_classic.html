@@ -1,0 +1,2821 @@
+{% extends "base.html" %}
+
+{% block title %}Transaksi Penjualan - POSEIDON{% endblock %}
+
+{% block content %}
+<style>
+/* Loading overlay untuk mencegah interaksi user saat request lambat */
+#loadingOverlay {
+    z-index: 9999;
+}
+
+/* Custom styles untuk penjualan classic */
+.classic-tabs {
+    background: #f8f9fa;
+    border-bottom: 2px solid #dee2e6;
+    /*padding: 0.5rem 1rem;*/
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    overflow-x: auto;
+    white-space: nowrap;
+    scrollbar-width: thin;
+}
+
+.classic-tabs::-webkit-scrollbar {
+    height: 6px;
+}
+
+.classic-tabs::-webkit-scrollbar-track {
+    background: #f1f1f1;
+}
+
+.classic-tabs::-webkit-scrollbar-thumb {
+    background: #c1c1c1;
+    border-radius: 3px;
+}
+
+.classic-tab {
+    background: #e9ecef;
+    border: 1px solid #ced4da;
+    border-bottom: none;
+    border-radius: 8px 8px 0 0;
+    padding: 0.5rem 1rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-weight: 500;
+    transition: all 0.3s ease;
+    flex-shrink: 0;
+    min-width: 120px;
+}
+
+.classic-tab.active {
+    background: var(--white);
+    border-color: #dee2e6;
+    color: var(--primary-color);
+    font-weight: 600;
+}
+
+.classic-tab:hover:not(.active) {
+    background: #f8f9fa;
+}
+
+.classic-tab .close-btn {
+    background: none;
+    border: none;
+    color: #dc3545;
+    font-weight: bold;
+    cursor: pointer;
+    padding: 0;
+    width: 16px;
+    height: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    transition: all 0.2s ease;
+}
+
+.classic-tab .close-btn:hover {
+    background: #dc3545;
+    color: white;
+}
+
+.add-tab-btn {
+    background: var(--success-color);
+    border: none;
+    color: white;
+    padding: 0.5rem 0.8rem;
+    border-radius: 6px;
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    flex-shrink: 0;
+}
+
+.add-tab-btn:hover {
+    background: #4cae4c;
+    transform: translateY(-1px);
+}
+
+.form-section {
+    background: var(--white);
+    border: 1px solid #dee2e6;
+    border-radius: var(--border-radius);
+    padding: 1.5rem;
+    margin-bottom: 1rem;
+    box-shadow: var(--box-shadow);
+}
+
+.input-group-classic {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+}
+
+.input-group-classic label {
+    font-weight: 600;
+    color: var(--dark-color);
+    margin-bottom: 0.3rem;
+}
+
+.input-group-classic input,
+.input-group-classic select {
+    padding: 0.6rem 0.8rem;
+    border: 2px solid #e9ecef;
+    border-radius: var(--border-radius);
+    font-size: 16px;
+}
+
+.input-group-classic input:focus,
+.input-group-classic select:focus {
+    border-color: var(--secondary-color);
+    box-shadow: 0 0 0 0.2rem rgba(151, 188, 98, 0.25);
+    outline: none;
+}
+
+.input-group-classic input:disabled {
+    background-color: #f8f9fa;
+    color: #6c757d;
+}
+
+.search-btn {
+    background: var(--primary-color);
+    border: none;
+    color: white;
+    padding: 0.6rem 1rem;
+    border-radius: var(--border-radius);
+    cursor: pointer;
+    transition: all 0.3s ease;
+    flex-shrink: 0;
+    min-width: 45px;
+}
+
+.search-btn:hover {
+    background: var(--secondary-color);
+    transform: translateY(-1px);
+}
+
+.search-btn:disabled {
+    background: #6c757d;
+    cursor: not-allowed;
+    transform: none;
+}
+
+.datasheet-container {
+    background: var(--white);
+    border: 2px solid #dee2e6;
+    border-radius: var(--border-radius);
+    margin-bottom: 1rem;
+    overflow: hidden;
+    box-shadow: var(--box-shadow);
+}
+
+.datasheet-header {
+    background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
+    color: var(--white);
+    padding: 1rem;
+    font-weight: 600;
+}
+
+.datasheet-scroll {
+    max-height: 300px;
+    overflow: auto;
+    border: 1px solid #dee2e6;
+}
+
+.datasheet-table {
+    width: 100%;
+    border-collapse: collapse;
+    min-width: 800px;
+}
+
+.datasheet-table th {
+    background: #f8f9fa;
+    padding: 0.8rem;
+    text-align: left;
+    font-weight: 600;
+    border: 1px solid #dee2e6;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+}
+
+.datasheet-table td {
+    padding: 0.8rem;
+    border: 1px solid #dee2e6;
+    vertical-align: middle;
+}
+
+.datasheet-table tbody tr {
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.datasheet-table tbody tr:hover {
+    background: rgba(151, 188, 98, 0.1);
+}
+
+.datasheet-table tbody tr.selected {
+    background: rgba(151, 188, 98, 0.2);
+}
+
+.action-btn {
+    padding: 0.4rem 0.8rem;
+    border: none;
+    border-radius: 4px;
+    margin: 0 0.2rem;
+    cursor: pointer;
+    font-size: 0.85rem;
+    transition: all 0.3s ease;
+}
+
+.delete-btn {
+    background: var(--danger-color);
+    color: white;
+}
+
+.action-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+}
+
+.payment-section {
+    background: var(--white);
+    border: 1px solid #dee2e6;
+    border-radius: var(--border-radius);
+    padding: 1.5rem;
+    box-shadow: var(--box-shadow);
+    position: relative;
+}
+
+.payment-row {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+
+.payment-row label {
+    min-width: 120px;
+    font-weight: 600;
+    color: var(--dark-color);
+}
+
+.payment-input {
+    flex: 1;
+    padding: 0.8rem;
+    border: 2px solid #e9ecef;
+    border-radius: var(--border-radius);
+    font-size: 18px;
+    font-weight: 600;
+    text-align: center;
+}
+
+.payment-input:focus {
+    border-color: var(--secondary-color);
+    box-shadow: 0 0 0 0.2rem rgba(151, 188, 98, 0.25);
+    outline: none;
+}
+
+.payment-input:disabled {
+    background-color: #f8f9fa;
+    font-weight: bold;
+}
+
+.total-display {
+    background: #ffe6e6;
+    color: #cc0000;
+    font-size: 24px;
+    font-weight: bold;
+    text-align: center;
+    border-color: #ff9999;
+}
+
+.kembalian-display {
+    background: #e6ffe6;
+    color: #006600;
+    font-size: 20px;
+    font-weight: bold;
+    text-align: center;
+    border-color: #99ff99;
+}
+
+/* Summary Toggle Button */
+.summary-toggle-btn {
+    position: fixed;
+    top: 140px;
+    right: 225px;
+    background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
+    color: white;
+    border: 2px solid #dee2e6;
+    border-right: none;
+    width: 25px;
+    height: 50px;
+    border-radius: 8px 0 0 8px;
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    z-index: 1002;
+    box-shadow: -2px 2px 8px rgba(0,0,0,0.2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    writing-mode: vertical-lr;
+    text-orientation: mixed;
+}
+
+.summary-toggle-btn:hover {
+    background: linear-gradient(135deg, #1e4220 0%, #7da050 100%);
+    transform: translateX(-2px);
+    box-shadow: -4px 4px 12px rgba(0,0,0,0.3);
+}
+
+.summary-toggle-btn.collapsed {
+    right: 0px;
+    border-radius: 0 8px 8px 0;
+    border-right: 2px solid #dee2e6;
+    border-left: none;
+    box-shadow: 2px 2px 8px rgba(0,0,0,0.2);
+}
+
+.summary-toggle-btn.collapsed:hover {
+    right: 5px;
+    box-shadow: 4px 4px 12px rgba(0,0,0,0.3);
+}
+
+.summary-toggle-btn i {
+    transition: transform 0.3s ease;
+    writing-mode: horizontal-tb;
+    text-orientation: mixed;
+}
+
+.summary-toggle-btn.collapsed i {
+    transform: rotate(180deg);
+}
+
+/* Summary Box */
+.summary-box {
+    position: fixed;
+    top: 140px;
+    right: 25px;
+    background: var(--white);
+    border: 2px solid #dee2e6;
+    border-left: none;
+    border-radius: 0 var(--border-radius) var(--border-radius) 0;
+    padding: 1rem;
+    box-shadow: 2px 4px 15px rgba(0,0,0,0.1);
+    z-index: 1001;
+    min-width: 200px;
+    transition: all 0.3s ease;
+}
+
+.summary-box.hidden {
+    transform: translateX(100%);
+    opacity: 0;
+    pointer-events: none;
+}
+
+.summary-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.5rem;
+    padding: 0.5rem;
+    border-radius: 4px;
+}
+
+.summary-item:last-child {
+    margin-bottom: 0;
+}
+
+.summary-item.total {
+    background: #ffe6e6;
+    color: #cc0000;
+    font-weight: bold;
+}
+
+.summary-item.payment {
+    background: #fff3cd;
+    color: #856404;
+    font-weight: bold;
+}
+
+.summary-item.change {
+    background: #e6ffe6;
+    color: #006600;
+    font-weight: bold;
+}
+
+.summary-label {
+    font-size: 0.9rem;
+}
+
+.summary-value {
+    font-size: 1rem;
+    font-weight: 600;
+}
+
+.modal-content {
+    border-radius: var(--border-radius);
+    border: none;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+}
+
+.modal-header {
+    background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
+    color: var(--white);
+    border-bottom: none;
+    border-radius: var(--border-radius) var(--border-radius) 0 0;
+}
+
+.search-modal-body {
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+.product-item {
+    padding: 1rem;
+    border: 1px solid #e9ecef;
+    border-radius: var(--border-radius);
+    margin-bottom: 0.5rem;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.product-item:hover,
+.product-item.keyboard-selected {
+    background: rgba(151, 188, 98, 0.1);
+    border-color: var(--secondary-color);
+    transform: translateY(-1px);
+}
+
+.product-item.selected {
+    background: rgba(151, 188, 98, 0.2);
+    border-color: var(--primary-color);
+}
+
+.completion-modal .modal-body {
+    text-align: center;
+    padding: 2rem;
+}
+
+.completion-amount {
+    font-size: 3rem;
+    font-weight: bold;
+    color: var(--success-color);
+    margin: 1rem 0;
+}
+
+.completion-buttons {
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+    margin-top: 2rem;
+}
+
+.completion-btn {
+    padding: 1rem 2rem;
+    border: none;
+    border-radius: var(--border-radius);
+    font-size: 1.1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    min-width: 150px;
+}
+
+.btn-new-transaction {
+    background: var(--success-color);
+    color: white;
+}
+
+.btn-print {
+    background: var(--info-color);
+    color: white;
+}
+
+.completion-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+}
+
+.empty-cart {
+    text-align: center;
+    padding: 3rem;
+    color: #6c757d;
+}
+
+.empty-cart i {
+    font-size: 4rem;
+    margin-bottom: 1rem;
+    opacity: 0.5;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .classic-tabs {
+        flex-wrap: nowrap;
+        overflow-x: auto;
+    }
+    
+    .classic-tab {
+        min-width: 100px;
+        font-size: 0.9rem;
+    }
+    
+    .input-group-classic {
+        margin-bottom: 0.8rem;
+    }
+    
+    .input-group-classic input,
+    .input-group-classic select {
+        font-size: 16px;
+    }
+    
+    .payment-row {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    
+    .payment-row label {
+        min-width: auto;
+        margin-bottom: 0.5rem;
+    }
+    
+    .completion-buttons {
+        flex-direction: column;
+    }
+    
+    .datasheet-scroll {
+        max-height: 250px;
+    }
+    
+    .datasheet-table {
+        min-width: 600px;
+    }
+    
+    .summary-toggle-btn {
+        position: fixed;
+        top: 140px;
+        right: 15px;
+        width: 20px;
+        height: 40px;
+        font-size: 0.8rem;
+        border-radius: 6px 0 0 6px;
+    }
+    
+    .summary-toggle-btn.collapsed {
+        right: 0px;
+        border-radius: 0 6px 6px 0;
+    }
+    
+    .summary-box {
+        position: fixed;
+        top: 140px;
+        right: 20px;
+        min-width: 150px;
+        padding: 0.8rem;
+        border-radius: 0 var(--border-radius) var(--border-radius) 0;
+    }
+    
+    .summary-item {
+        flex-direction: column;
+        text-align: center;
+        margin-bottom: 0.3rem;
+        padding: 0.3rem;
+    }
+    
+    .summary-label {
+        font-size: 0.7rem;
+    }
+    
+    .summary-value {
+        font-size: 0.8rem;
+    }
+}
+
+@media (max-width: 576px) {
+    .form-section {
+        padding: 1rem;
+    }
+    
+    .payment-section {
+        padding: 1rem;
+    }
+    
+    .classic-tab {
+        min-width: 80px;
+        padding: 0.4rem 0.8rem;
+        font-size: 0.8rem;
+    }
+    
+    .datasheet-table th,
+    .datasheet-table td {
+        padding: 0.5rem;
+        font-size: 0.9rem;
+    }
+    
+    .summary-toggle-btn {
+        right: 10px;
+        width: 18px;
+        height: 35px;
+        font-size: 0.7rem;
+    }
+    
+    .summary-box {
+        right: 18px;
+        min-width: 120px;
+        padding: 0.6rem;
+    }
+    
+    .summary-label {
+        font-size: 0.65rem;
+    }
+    
+    .summary-value {
+        font-size: 0.75rem;
+    }
+}
+
+/* Edit mode styling */
+.edit-mode-locked {
+    background-color: #fff3cd !important;
+    border-color: #ffeaa7 !important;
+    color: #856404 !important;
+    cursor: not-allowed !important;
+    opacity: 0.7;
+}
+
+.edit-mode-notice {
+    background: #fff3cd;
+    border: 1px solid #ffeaa7;
+    color: #856404;
+    padding: 0.5rem 1rem;
+    border-radius: var(--border-radius);
+    margin-bottom: 1rem;
+    font-size: 0.9rem;
+    display: none;
+}
+
+.edit-mode-notice.show {
+    display: block;
+}
+</style>
+
+<!-- Loading overlay -->
+<div id="loadingOverlay" class="position-fixed top-0 start-0 w-100 h-100 d-flex flex-column align-items-center justify-content-center bg-light bg-opacity-75 d-none" style="z-index: 2000;">
+    <div class="spinner-border text-primary" role="status">
+        <span class="visually-hidden">Loading...</span>
+    </div>
+    <div class="mt-2">Mohon tunggu...</div>
+</div>
+
+<!-- Summary Toggle Button -->
+<button class="summary-toggle-btn" id="summaryToggleBtn" onclick="toggleSummaryBox()" title="Toggle Summary Box">
+    <i class="fas fa-chevron-left"></i>
+</button>
+
+<!-- Summary Box - Pojok Kanan Atas -->
+<div class="summary-box d-none d-lg-block" id="summaryBoxDesktop">
+    <div class="summary-item total">
+        <span class="summary-label">Total:</span>
+        <span class="summary-value" id="summaryTotal">Rp 0</span>
+    </div>
+    <div class="summary-item payment">
+        <span class="summary-label">Bayar:</span>
+        <span class="summary-value" id="summaryPayment">Rp 0</span>
+    </div>
+    <div class="summary-item change">
+        <span class="summary-label">Kembalian: </span>
+        <span class="summary-value" id="summaryChange">Rp 0</span>
+    </div>
+</div>
+
+<!-- Mobile Summary Box -->
+<div class="summary-box d-lg-none" id="summaryBoxMobile">
+    <div class="summary-item total">
+        <span class="summary-label">Total</span>
+        <span class="summary-value" id="summaryTotalMobile">Rp 0</span>
+    </div>
+    <div class="summary-item payment">
+        <span class="summary-label">Bayar</span>
+        <span class="summary-value" id="summaryPaymentMobile">Rp 0</span>
+    </div>
+    <div class="summary-item change">
+        <span class="summary-label">Kembalian</span>
+        <span class="summary-value" id="summaryChangeMobile">Rp 0</span>
+    </div>
+</div>
+<div class="row">
+    <div class="col-md-12 d-flex justify-content-between align-items-center">
+        <h2 class="mb-4">
+            <i class="fas fa-cash-register me-2"></i>Transaksi Penjualan
+        </h2>
+        <div class="view-mode-toggle d-flex align-items-center gap-2 mb-4">
+            <span class="text-muted small">Mode Tampilan:</span>
+            <div class="btn-group btn-group-sm" role="group" aria-label="View Mode Toggle">
+                <input type="radio" class="btn-check" name="viewMode" id="classicMode" value="classic" checked onchange="switchViewMode('classic')">
+                <label class="btn btn-outline-secondary" for="classicMode">
+                    <i class="fas fa-th-list me-1"></i>Classic
+                </label>
+                <input type="radio" class="btn-check" name="viewMode" id="modernMode" value="modern" onchange="switchViewMode('modern')">
+                <label class="btn btn-outline-primary" for="modernMode">
+                    <i class="fas fa-desktop me-1"></i>Modern
+                </label>
+            </div>
+        </div>
+    </div>
+</div>
+<!-- Keyboard Shortcuts Info -->
+<div class="row mb-3">
+    <div class="col-md-12">
+        <div class="alert alert-info alert-dismissible fade show" role="alert">
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            <strong>Keyboard Shortcuts:</strong>
+            <span class="badge bg-primary ms-1">F1</span> Cari Barang
+            <span class="badge bg-primary ms-1">F2</span> Proses Pembayaran
+            <span class="badge bg-primary ms-1">F3</span> Reset Antrean
+            <span class="badge bg-primary ms-1">F4</span> Tambah Antrean
+            <span class="badge bg-primary ms-1">F7</span> Antrean Sebelumnya
+            <span class="badge bg-primary ms-1">F8</span> Antrean Selanjutnya
+            <span class="badge bg-primary ms-1">F9</span> Show/Hide Summary Box
+        </div>
+    </div>
+</div>
+<!-- Tab System -->
+<div class="classic-tabs">
+    <div id="tabContainer" style="display: flex; gap: 0.5rem;">
+        <!-- Tabs akan di-generate oleh JavaScript -->
+    </div>
+    <button class="add-tab-btn" onclick="addNewTab()" title="Tambah Antrean Baru (F4)">
+        <i class="fas fa-plus"></i> Tambah
+    </button>
+</div>
+
+<!-- Edit Mode Notice -->
+<div class="edit-mode-notice" id="editModeNotice">
+    <i class="fas fa-edit"></i> Mode Edit: Sedang mengedit item. Selesaikan input quantity untuk mencari barang lain.
+</div>
+
+<!-- No Queue Notice (shown when no queue exists) -->
+<div class="row mb-3" id="noQueueNoticeRow">
+    <div class="col-md-12">
+        <div id="noQueueNotice" class="alert alert-warning d-none" role="alert">
+            <i class="fas fa-info-circle"></i>
+            Belum ada antrean. Tambah antrean terlebih dahulu dengan klik tombol "Tambah" atau tekan F4.
+        </div>
+    </div>
+    </div>
+
+<!-- Header Information -->
+<div class="form-section">
+    <div class="row">
+        <div class="col-md-6">
+            <div class="input-group-classic">
+                <label>Tanggal:</label>
+                <input type="text" id="currentDate" value="" disabled>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="input-group-classic">
+                <label>Pelanggan:</label>
+                <select id="customerSelect">
+                    <option value="">-- Pilih Pelanggan --</option>
+                    {% for pelanggan_item in pelanggan_list %}
+                    <option value="{{ pelanggan_item.id }}">{{ pelanggan_item.nama }} - {{ pelanggan_item.no_hp or 'N/A' }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+        </div>
+            <label style="margin-bottom: 1rem;">Metode Pembayaran:</label>
+            <div class="payment-row">
+                <select id="paymentMethod" class="payment-input" onchange="onPaymentMethodChange()">
+                    <option value="tunai">Tunai</option>
+                    <option value="transfer">Transfer Bank</option>
+                    <option value="qris">QRIS</option>
+                    <option value="debit">Debit</option>
+                    <option value="kredit">Kredit</option>
+                </select>
+        </div>
+    </div>
+</div>
+
+<!-- Input Form -->
+<div class="form-section">
+    <div class="row">
+        <div class="col-12 col-sm-6 col-md-4 col-lg-3">
+            <div class="input-group-classic">
+                <label>Kode Barang:</label>
+                <div class="d-flex gap-2">
+                    <input type="text" id="productCode" placeholder="Kode/Barcode" class="flex-grow-1">
+                    <button class="search-btn" id="searchBtn" onclick="openSearchModal()">
+                        <i class="fas fa-search"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+        <div class="col-12 col-sm-6 col-md-4 col-lg-3">
+            <div class="input-group-classic">
+                <label>Nama Barang:</label>
+                <input type="text" id="productName" disabled>
+            </div>
+        </div>
+        <div class="col-6 col-sm-4 col-md-2 col-lg-1">
+            <div class="input-group-classic">
+                <label>Qty:</label>
+                <input type="number" id="quantity" min="1" step="1">
+            </div>
+        </div>
+        <div class="col-6 col-sm-4 col-md-3 col-lg-2">
+            <div class="input-group-classic">
+                <label>Harga Satuan:</label>
+                <input type="text" id="unitPrice" disabled>
+            </div>
+        </div>
+        <div class="col-6 col-sm-4 col-md-3 col-lg-2">
+            <div class="input-group-classic">
+                <label>Harga Total:</label>
+                <input type="text" id="totalPrice" disabled>
+            </div>
+        </div>
+        <div class="col-6 col-sm-12 col-md-2 col-lg-1">
+            <div class="input-group-classic">
+                <label>Tipe:</label>
+                <input type="text" id="priceType" disabled>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Datasheet -->
+<div class="datasheet-container">
+    <div class="datasheet-header">
+        <i class="fas fa-list-alt"></i> Daftar Penjualan - Double click untuk edit
+    </div>
+    <div class="datasheet-scroll">
+        <table class="datasheet-table">
+            <thead>
+                <tr>
+                    <th>Kode Barang</th>
+                    <th>Nama Barang</th>
+                    <th>Qty</th>
+                    <th>Harga Satuan</th>
+                    <th>Harga Total</th>
+                    <th>Tipe</th>
+                    <th>Aksi</th>
+                </tr>
+            </thead>
+            <tbody id="cartTableBody">
+                <tr class="empty-cart">
+                    <td colspan="7">
+                        <i class="fas fa-shopping-cart"></i>
+                        <div>Belum ada item dalam keranjang</div>
+                        <small>Scan barcode atau cari barang untuk menambah item</small>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Payment Section -->
+<div class="payment-section">
+    <div class="payment-row">
+        <label>Total Harga:</label>
+        <input type="text" id="grandTotal" class="payment-input total-display" value="Rp 0" disabled>
+    </div>
+    <div class="payment-row">
+        <label>Bayar:</label>
+        <input type="text" id="paymentAmount" class="payment-input" placeholder="Rp 0" oninput="formatCurrency(this); calculateChange();">
+    </div>
+    <div class="payment-row">
+        <label>Kembalian:</label>
+        <input type="text" id="changeAmount" class="payment-input kembalian-display" value="Rp 0" disabled>
+    </div>
+</div>
+
+<!-- Modal Search Product -->
+<div class="modal fade" id="searchModal" tabindex="-1" data-bs-backdrop="static">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-search"></i> Cari Barang
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <input type="text" id="searchInput" class="form-control" placeholder="Ketik nama barang atau kode... (Enter untuk pilih)" style="font-size: 16px;">
+                </div>
+                <div id="searchResults" class="search-modal-body">
+                    <!-- Search results akan di-populate di sini -->
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+                <button type="button" class="btn btn-success" onclick="addSelectedProductToCart()" disabled id="addToCartBtn">
+                    <i class="fas fa-plus"></i> Pilih Produk
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Transaction Complete -->
+<div class="modal fade completion-modal" id="completionModal" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-check-circle"></i> Transaksi Berhasil
+                </h5>
+            </div>
+            <div class="modal-body">
+                <div>
+                    <i class="fas fa-money-bill-wave" style="font-size: 4rem; color: var(--success-color); margin-bottom: 1rem;"></i>
+                </div>
+                <div>
+                    <strong>Jumlah Kembalian</strong>
+                </div>
+                <div class="completion-amount" id="completionAmount">Rp 0</div>
+                <div class="completion-buttons">
+                    <button class="completion-btn btn-new-transaction" onclick="newTransaction()" autofocus>
+                        <i class="fas fa-plus"></i> Transaksi Baru
+                    </button>
+                    <button class="completion-btn btn-print" onclick="printReceipt()">
+                        <i class="fas fa-print"></i> Print
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Global variables
+let salesQueues = []; 
+let activeQueueId = null;
+
+// === VIEW MODE SWITCHING ===
+async function switchViewMode(mode) {
+    console.log('Classic: Switching view mode to:', mode);
+    console.log('Classic: Current activeQueueId:', activeQueueId);
+    console.log('Classic: Current salesQueues before switch:', JSON.stringify(salesQueues, null, 2));
+    
+    // Save current cart to backend first
+    if (activeQueueId) {
+        console.log('Classic: Saving cart to backend before switch...');
+        await updateQueueCartToBackend(activeQueueId);
+        console.log('Classic: Cart saved to backend');
+    }
+    
+    // Save current state before switching
+    const currentState = {
+        salesQueues: salesQueues,
+        activeQueueId: activeQueueId,
+        pelangganId: document.getElementById('customerSelect')?.value || '',
+        metodePembayaran: document.getElementById('paymentMethod')?.value || 'tunai'
+    };
+    
+    // Ensure cart items have both modern and classic format fields
+    currentState.salesQueues.forEach(queue => {
+        if (queue.cart && Array.isArray(queue.cart)) {
+            queue.cart.forEach(item => {
+                // Ensure both quantity fields exist
+                if (item.quantity !== undefined && item.jumlah === undefined) {
+                    item.jumlah = item.quantity;
+                }
+                if (item.jumlah !== undefined && item.quantity === undefined) {
+                    item.quantity = item.jumlah;
+                }
+                
+                // Ensure both name fields exist
+                if (item.name && !item.nama) {
+                    item.nama = item.name;
+                }
+                if (item.nama && !item.name) {
+                    item.name = item.nama;
+                }
+                
+                // Ensure both code fields exist
+                if (item.code && !item.kode) {
+                    item.kode = item.code;
+                }
+                if (item.kode && !item.code) {
+                    item.code = item.kode;
+                }
+                
+                // Ensure both price fields exist
+                if (item.unitPrice !== undefined && item.harga === undefined) {
+                    item.harga = item.unitPrice;
+                }
+                if (item.harga !== undefined && item.unitPrice === undefined) {
+                    item.unitPrice = item.harga;
+                }
+                
+                // Calculate total if missing
+                const currentQty = item.quantity || item.jumlah || 0;
+                const currentPrice = item.unitPrice || item.harga || 0;
+                if (!item.total || item.total === 0) {
+                    item.total = currentQty * currentPrice;
+                }
+                
+                // Ensure price type mapping
+                if (item.priceType && !item.tipe_harga) {
+                    item.tipe_harga = item.priceType.toLowerCase();
+                }
+                if (item.tipe_harga && !item.priceType) {
+                    item.priceType = item.tipe_harga === 'grosir' ? 'Grosir' : 'Eceran';
+                }
+                
+                // Ensure stock fields are preserved during transition
+                if (!item.stok_awal && item.originalProduct?.stok) {
+                    item.stok_awal = item.originalProduct.stok;
+                }
+                if (!item.originalProduct && item.stok_awal) {
+                    item.originalProduct = {
+                        id: item.id,
+                        stok: item.stok_awal,
+                        harga_jual: item.harga_eceran || item.unitPrice || item.harga,
+                        harga_grosir: item.harga_grosir,
+                        batas_minimal_grosir: item.batas_minimal_grosir || 10
+                    };
+                }
+                
+                console.log('Classic: Prepared item for transition with stock:', item.stok_awal, 'originalProduct.stok:', item.originalProduct?.stok);
+                console.log('Classic: Prepared item for transition:', JSON.stringify(item, null, 2));
+            });
+        }
+    });
+    
+    console.log('Classic: Saving state to sessionStorage:', JSON.stringify(currentState, null, 2));
+    
+    // Set cookie to remember preference
+    document.cookie = `sales_view_mode=${mode}; path=/; max-age=31536000`; // 1 year
+    
+    // Store state in sessionStorage for seamless transition
+    sessionStorage.setItem('salesTransitionState', JSON.stringify(currentState));
+    
+    // Show loading overlay
+    showLoadingOverlay();
+    
+    // Redirect to sales page (views.py will read cookie and render appropriate template)
+    window.location.href = '/sales/penjualan';
+}
+
+function getCookie(name) {
+    const value = `; ${document.cookie}`;
+    const parts = value.split(`; ${name}=`);
+    if (parts.length === 2) return parts.pop().split(';').shift();
+    return null;
+}
+
+function restoreStateAfterTransition() {
+    const savedState = sessionStorage.getItem('salesTransitionState');
+    console.log('Classic: Restoring state from sessionStorage:', savedState);
+    
+    if (savedState) {
+        try {
+            const state = JSON.parse(savedState);
+            console.log('Classic: Parsed state:', state);
+            
+            // Restore queues and active queue
+            if (state.salesQueues && state.salesQueues.length > 0) {
+                console.log('Classic: Restoring salesQueues from state...');
+                // Normalize cart data format and ensure proper arrays
+                salesQueues = state.salesQueues.map(queue => ({
+                    ...queue,
+                    cart: Array.isArray(queue.cart) ? queue.cart.map(item => normalizeCartItem(item)) : []
+                }));
+                activeQueueId = state.activeQueueId;
+                
+                console.log('Classic: Restored salesQueues:', JSON.stringify(salesQueues, null, 2));
+                console.log('Classic: Restored activeQueueId:', activeQueueId);
+                
+                // Restore UI selections
+                if (state.pelangganId) {
+                    const pelangganSelect = document.getElementById('customerSelect');
+                    if (pelangganSelect) pelangganSelect.value = state.pelangganId;
+                }
+                
+                if (state.metodePembayaran) {
+                    const metodeSelect = document.getElementById('paymentMethod');
+                    if (metodeSelect) metodeSelect.value = state.metodePembayaran;
+                }
+                
+                // Re-render UI with restored state
+                renderQueueTabs();
+                loadCartData();
+                applyPaymentMethodUi();
+                
+                // Focus on product code input after state restoration
+                setTimeout(() => {
+                    const productCodeInput = document.getElementById('productCode');
+                    if (productCodeInput) productCodeInput.focus();
+                }, 100);
+                
+                console.log('Classic: State restoration completed');
+            } else {
+                console.log('Classic: No salesQueues in saved state, loading from backend...');
+            }
+            
+            // Clear the saved state
+            sessionStorage.removeItem('salesTransitionState');
+        } catch (e) {
+            console.error('Classic: Error restoring transition state:', e);
+        }
+    } else {
+        console.log('Classic: No saved state found in sessionStorage');
+    }
+}
+
+// Normalize cart item to ensure consistent format between templates
+function normalizeCartItem(item) {
+    if (!item) return null;
+    
+    console.log('Classic: Normalizing item:', JSON.stringify(item, null, 2));
+    
+    // Prioritize the correct quantity value based on source template
+    let quantity;
+    if (item.quantity !== undefined && item.jumlah !== undefined) {
+        console.log('Classic: Both quantity fields exist - quantity:', item.quantity, 'jumlah:', item.jumlah);
+        // When both exist, always prioritize jumlah (modern template field) as it's more recent
+        // The total field may be outdated and shouldn't be used for quantity selection
+        quantity = item.jumlah;
+        console.log('Classic: Selected jumlah:', quantity, 'as it represents the most recent quantity from modern view');
+    } else {
+        quantity = parseFloat(item.quantity || item.jumlah || 0);
+        console.log('Classic: Using single quantity field:', quantity);
+    }
+    
+    // Get pricing information
+    const hargaEceran = parseFloat(item.harga_eceran || item.originalProduct?.harga_jual || item.unitPrice || item.harga || 0);
+    const hargaGrosir = item.harga_grosir ? parseFloat(item.harga_grosir) : null;
+    const batasMinimalGrosir = item.batas_minimal_grosir || 10;
+    
+    // Prioritize stock information from multiple sources
+    let stockAwal = 0;
+    if (item.stok_awal !== undefined && item.stok_awal !== null && item.stok_awal !== 0) {
+        stockAwal = parseFloat(item.stok_awal);
+    } else if (item.originalProduct?.stok !== undefined && item.originalProduct.stok !== null && item.originalProduct.stok !== 0) {
+        stockAwal = parseFloat(item.originalProduct.stok);
+    } else if (item.stok !== undefined && item.stok !== null && item.stok !== 0) {
+        stockAwal = parseFloat(item.stok);
+    } else {
+        // Last resort: if all stock fields are 0 or missing, try to preserve any existing value
+        stockAwal = parseFloat(item.stok_awal || item.originalProduct?.stok || item.stok || 0);
+    }
+    
+    console.log('Classic: Stock info - final stockAwal:', stockAwal, 'from item.stok_awal:', item.stok_awal, 'originalProduct.stok:', item.originalProduct?.stok, 'item.stok:', item.stok);
+    
+    // Recalculate price and type based on current quantity
+    let currentPrice = hargaEceran;
+    let priceType = 'Eceran';
+    
+    if (hargaGrosir && quantity >= batasMinimalGrosir) {
+        currentPrice = hargaGrosir;
+        priceType = 'Grosir';
+    }
+    
+    const normalizedItem = {
+        // Classic template format (primary)
+        id: item.id,
+        code: item.code || item.kode_barang || item.kode || '',
+        name: item.name || item.nama_barang || item.nama || '',
+        quantity: quantity,
+        unitPrice: currentPrice,
+        total: currentPrice * quantity,
+        priceType: priceType,
+        
+        // Modern template format (for compatibility)
+        jumlah: quantity,
+        harga: currentPrice,
+        nama: item.name || item.nama_barang || item.nama || '',
+        kode: item.code || item.kode_barang || item.kode || '',
+        tipe_harga: priceType.toLowerCase(),
+        harga_eceran: hargaEceran,
+        
+        // Additional properties for functionality
+        originalProduct: item.originalProduct || {
+            id: item.id,
+            harga_jual: hargaEceran,
+            harga_grosir: hargaGrosir,
+            batas_minimal_grosir: batasMinimalGrosir,
+            stok: stockAwal
+        },
+        stok_awal: stockAwal,
+        satuan: item.satuan || 'Pcs',
+        harga_grosir: hargaGrosir,
+        batas_minimal_grosir: batasMinimalGrosir
+    };
+    
+    console.log('Classic: Normalized item:', JSON.stringify(normalizedItem, null, 2));
+    return normalizedItem;
+}
+let selectedProductIndex = -1;
+let keyboardSelectedIndex = -1;
+let searchResults = [];
+let isEditingMode = false;
+let editingItemCode = null;
+let isProcessingPayment = false;
+
+// === LOADING OVERLAY HELPERS ===
+function showLoadingOverlay() {
+    const ov = document.getElementById('loadingOverlay');
+    if (ov) {
+        ov.classList.remove('d-none');
+    }
+}
+
+function hideLoadingOverlay() {
+    const ov = document.getElementById('loadingOverlay');
+    if (ov) {
+        ov.classList.add('d-none');
+    }
+}
+
+// === SERVER-SIDE QUEUE MANAGEMENT ===
+async function syncQueuesFromBackend() {
+    try {
+        const res = await fetch('/sales/antrian');
+        const backendQueues = await res.json();
+        
+        // Convert backend queues to salesQueues format
+        const uniqueQueues = [];
+        const seenIds = new Set();
+        backendQueues.forEach(q => {
+            if (!seenIds.has(q.id)) {
+                seenIds.add(q.id);
+                uniqueQueues.push({
+                    id: 'antrian-' + q.id,
+                    name: q.nama_antrian,
+                    cart: [], // Always initialize as empty array
+                    customerId: '',
+                    paymentMethod: 'tunai',
+                    backendId: q.id
+                });
+            }
+        });
+        
+        salesQueues = uniqueQueues;
+        if (salesQueues.length > 0) {
+            activeQueueId = salesQueues[0].id;
+        } else {
+            activeQueueId = null;
+        }
+        
+        renderQueueTabs();
+        updateCartDisplay();
+        updateQueueUiState();
+    } catch (error) {
+        console.error('Error syncing queues from backend:', error);
+        showAlert('Gagal memuat antrean dari server');
+    }
+}
+
+async function addNewTab() {
+    showLoadingOverlay();
+    
+    // Cari nomor antrean terbesar yang ada
+    let maxNum = 0;
+    salesQueues.forEach(q => {
+        const match = q.name.match(/Antrean\s*#?(\d+)/i);
+        if (match) {
+            const num = parseInt(match[1], 10);
+            if (num > maxNum) maxNum = num;
+        }
+    });
+    const newQueueName = `Antrean #${maxNum + 1}`;
+    
+    try {
+        const initialData = { cart: [], paymentMethod: 'tunai' };
+        const res = await fetch('/sales/antrian/tambah', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ 
+                nama_antrian: newQueueName, 
+                data_antrian: JSON.stringify(initialData) 
+            })
+        });
+        
+        if (!res.ok) {
+            const errText = await res.text();
+            console.error('Gagal tambah antrean:', errText);
+            showAlert('Gagal menambah antrean');
+            return;
+        }
+        
+        const data = await res.json();
+        if (data.success) {
+            await syncQueuesFromBackend();
+            const newQueue = salesQueues.find(q => q.backendId == data.id);
+            if (newQueue) {
+                await switchTab(newQueue.id);
+            }
+            updateQueueUiState();
+        } else {
+            console.error('Tambah antrean gagal:', data.message);
+            showAlert('Tambah antrean gagal: ' + (data.message || 'unknown error'));
+        }
+    } catch (e) {
+        console.error('Error saat menambah antrean:', e);
+        showAlert('Tidak dapat menambah antrean: ' + e.message);
+    } finally {
+        hideLoadingOverlay();
+    }
+}
+
+async function closeTab(tabId) {
+    if (salesQueues.length <= 1) {
+        showAlert('Minimal harus ada satu antrean aktif!');
+        return;
+    }
+    
+    const queue = salesQueues.find(q => q.id === tabId);
+    if (queue && queue.cart && queue.cart.length > 0) {
+        showConfirmDialog('Antrean ini memiliki item. Yakin ingin menutup?', () => {
+            performCloseTab(tabId);
+        });
+        return;
+    }
+    
+    performCloseTab(tabId);
+}
+
+async function performCloseTab(tabId) {
+    showLoadingOverlay();
+    try {
+        const queue = salesQueues.find(q => q.id === tabId);
+        if (queue && queue.backendId) {
+            await fetch(`/sales/antrian/${queue.backendId}/hapus`, {method: 'POST', keepalive: true});
+            await syncQueuesFromBackend();
+            
+            // Set antrean aktif ke antrean pertama jika ada
+            if (salesQueues.length > 0) {
+                activeQueueId = salesQueues[0].id;
+                await switchTab(activeQueueId);
+            } else {
+                activeQueueId = null;
+                renderQueueTabs();
+                updateCartDisplay();
+                updateQueueUiState();
+            }
+        }
+    } catch(err) {
+        console.error('Gagal menghapus antrean:', err);
+        showAlert('Gagal menghapus antrean');
+    } finally {
+        hideLoadingOverlay();
+    }
+}
+
+async function switchTab(queueId) {
+    activeQueueId = queueId;
+    const queue = salesQueues.find(q => q.id === queueId);
+    
+    if (queue && queue.backendId) {
+        try {
+            const res = await fetch(`/sales/antrian/${queue.backendId}/ambil`);
+            const data = await res.json();
+            if (data.data_antrian) {
+                try {
+                    const parsed = JSON.parse(data.data_antrian);
+                    if (Array.isArray(parsed)) {
+                        // Backward compatibility (old format): direct array
+                        queue.cart = parsed.map(item => normalizeCartItem(item));
+                    } else if (parsed && typeof parsed === 'object') {
+                        queue.cart = Array.isArray(parsed.cart) ? parsed.cart.map(item => normalizeCartItem(item)) : [];
+                        queue.paymentMethod = parsed.paymentMethod || queue.paymentMethod || 'tunai';
+                    } else {
+                        queue.cart = [];
+                    }
+                } catch (e) {
+                    console.warn('Failed to parse data_antrian JSON:', e);
+                    queue.cart = [];
+                }
+            } else {
+                queue.cart = [];
+            }
+        } catch (error) {
+            console.error('Error loading queue data:', error);
+            queue.cart = [];
+        }
+    }
+    
+    // Ensure cart is always an array
+    if (!queue || !Array.isArray(queue.cart)) {
+        if (queue) queue.cart = [];
+    }
+    
+    // Cancel any edit mode
+    cancelEditMode();
+    
+    // Clear current form
+    clearForm();
+    
+    // Sync payment method UI for this queue BEFORE calculating totals
+    const sel = document.getElementById('paymentMethod');
+    if (sel) {
+        sel.value = (queue && queue.paymentMethod) ? queue.paymentMethod : 'tunai';
+    }
+    applyPaymentMethodUi();
+
+    renderQueueTabs();
+    loadCartData();
+    updateQueueUiState();
+}
+
+async function updateQueueCartToBackend(queueId) {
+    const queue = salesQueues.find(q => q.id === queueId);
+    if (!queue) return;
+
+    const persisted = {
+        cart: queue.cart || [],
+        paymentMethod: queue.paymentMethod || 'tunai'
+    };
+    const payload = {
+        nama_antrian: queue.name,
+        data_antrian: JSON.stringify(persisted)
+    };
+
+    try {
+        if (queue.backendId) {
+            const response = await fetch(`/sales/antrian/${queue.backendId}/update`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(payload)
+            });
+            if (!response.ok) {
+                console.error('Failed to update queue in backend:', response.statusText);
+            }
+        } else {
+            const res = await fetch('/sales/antrian/tambah', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(payload)
+            });
+            if (res.ok) {
+                const data = await res.json();
+                queue.backendId = data.id;
+            }
+        }
+    } catch (err) {
+        console.error('Failed to sync queue to backend:', err);
+    }
+}
+
+function renderQueueTabs() {
+    const tabsContainer = document.getElementById('tabContainer');
+    tabsContainer.innerHTML = '';
+    
+    salesQueues.forEach(queue => {
+        const isActive = queue.id === activeQueueId;
+        
+        const tabDiv = document.createElement('div');
+        tabDiv.className = `classic-tab ${isActive ? 'active' : ''}`;
+        tabDiv.setAttribute('data-tab-id', queue.id);
+        
+        const spanElement = document.createElement('span');
+        spanElement.textContent = queue.name;
+        tabDiv.appendChild(spanElement);
+        
+        // Add close button if there are more than 1 queues
+        if (salesQueues.length > 1) {
+            const closeBtn = document.createElement('button');
+            closeBtn.className = 'close-btn';
+            closeBtn.title = 'Tutup Antrean Ini';
+            closeBtn.innerHTML = '&times;';
+            closeBtn.addEventListener('click', function(e) {
+                e.stopPropagation();
+                e.preventDefault();
+                closeTab(queue.id);
+            });
+            tabDiv.appendChild(closeBtn);
+        }
+        
+        // Event listener untuk switch tab
+        tabDiv.addEventListener('click', function(event) {
+            if (event.target.classList.contains('close-btn')) {
+                return;
+            }
+            if (queue.id !== activeQueueId) {
+                switchTab(queue.id);
+            }
+        });
+        
+        tabsContainer.appendChild(tabDiv);
+    });
+}
+
+// Reset current queue (clear all items)
+function resetActiveQueue() {
+    if (!activeQueueId) {
+        showAlert('Belum ada antrean. Tambah antrean dulu (F4).');
+        return;
+    }
+    const activeQueue = salesQueues.find(q => q.id === activeQueueId);
+    if (!activeQueue) {
+        showAlert('Antrean aktif tidak valid!');
+        return;
+    }
+    showConfirmDialog('Yakin reset antrean ini? Semua item akan dihapus.', () => {
+        activeQueue.cart = [];
+        loadCartData();
+        document.getElementById('paymentAmount').value = '';
+        document.getElementById('changeAmount').value = 'Rp 0';
+        updateQueueCartToBackend(activeQueueId);
+        updateSummaryDisplay();
+        document.getElementById('productCode').focus();
+    });
+}
+
+// Navigate between queues
+function switchToPrevQueue() {
+    if (!activeQueueId || salesQueues.length <= 1) {
+        showAlert('Tidak ada antrean lain. Tambah antrean (F4).');
+        return;
+    }
+    const idx = salesQueues.findIndex(q => q.id === activeQueueId);
+    if (idx > 0) {
+        switchTab(salesQueues[idx - 1].id);
+    } else {
+        showAlert('Sudah di antrean pertama.');
+    }
+}
+
+function switchToNextQueue() {
+    if (!activeQueueId || salesQueues.length <= 1) {
+        showAlert('Tidak ada antrean lain. Tambah antrean (F4).');
+        return;
+    }
+    const idx = salesQueues.findIndex(q => q.id === activeQueueId);
+    if (idx >= 0 && idx < salesQueues.length - 1) {
+        switchTab(salesQueues[idx + 1].id);
+    } else {
+        showAlert('Sudah di antrean terakhir.');
+    }
+}
+
+// Toggle Summary Box
+function toggleSummaryBox() {
+    const desktopBox = document.getElementById('summaryBoxDesktop');
+    const mobileBox = document.getElementById('summaryBoxMobile');
+    const toggleBtn = document.getElementById('summaryToggleBtn');
+    
+    if (window.innerWidth >= 992) { // Desktop
+        desktopBox.classList.toggle('hidden');
+        toggleBtn.classList.toggle('collapsed');
+    } else { // Mobile
+        if (window.innerWidth <= 768) {
+            mobileBox.classList.toggle('hidden');
+            toggleBtn.classList.toggle('collapsed');
+        } else {
+            desktopBox.classList.toggle('hidden');
+            toggleBtn.classList.toggle('collapsed');
+        }
+    }
+}
+
+// Lock/unlock search functionality during edit mode
+function setEditMode(enabled) {
+    isEditingMode = enabled;
+    const productCodeInput = document.getElementById('productCode');
+    const searchBtn = document.getElementById('searchBtn');
+    const editNotice = document.getElementById('editModeNotice');
+    
+    if (enabled) {
+        productCodeInput.classList.add('edit-mode-locked');
+        productCodeInput.disabled = true;
+        searchBtn.disabled = true;
+        searchBtn.classList.add('edit-mode-locked');
+        editNotice.classList.add('show');
+    } else {
+        productCodeInput.classList.remove('edit-mode-locked');
+        productCodeInput.disabled = false;
+        searchBtn.disabled = false;
+        searchBtn.classList.remove('edit-mode-locked');
+        editNotice.classList.remove('show');
+    }
+}
+
+// Lock UI if no active queue
+function updateQueueUiState() {
+    const hasQueue = !!activeQueueId && salesQueues.length > 0;
+    const productCodeInput = document.getElementById('productCode');
+    const searchBtn = document.getElementById('searchBtn');
+    const noQueueNotice = document.getElementById('noQueueNotice');
+
+    if (productCodeInput && searchBtn) {
+        if (!hasQueue) {
+            productCodeInput.disabled = true;
+            productCodeInput.placeholder = 'Tambah antrean dulu (F4)';
+            searchBtn.disabled = true;
+            if (noQueueNotice) noQueueNotice.classList.remove('d-none');
+        } else {
+            if (!isEditingMode) {
+                productCodeInput.disabled = false;
+                productCodeInput.placeholder = 'Kode/Barcode';
+                searchBtn.disabled = false;
+            }
+            if (noQueueNotice) noQueueNotice.classList.add('d-none');
+        }
+    }
+}
+
+// Initialize
+document.addEventListener('DOMContentLoaded', async function() {
+    // Check for saved view mode and set toggle accordingly
+    const savedViewMode = getCookie('sales_view_mode') || 'modern';
+    const classicRadio = document.getElementById('classicMode');
+    const modernRadio = document.getElementById('modernMode');
+    
+    if (savedViewMode === 'classic') {
+        if (classicRadio) classicRadio.checked = true;
+        if (modernRadio) modernRadio.checked = false;
+    } else {
+        if (classicRadio) classicRadio.checked = false;
+        if (modernRadio) modernRadio.checked = true;
+    }
+    
+    // Try to restore state first
+    restoreStateAfterTransition();
+    
+    // If no restored state, load from backend
+    if (salesQueues.length === 0) {
+        await syncQueuesFromBackend();
+        if (salesQueues.length > 0) {
+            activeQueueId = salesQueues[0].id;
+            await switchTab(activeQueueId);
+        } else {
+            activeQueueId = null;
+            renderQueueTabs();
+            loadCartData();
+        }
+    }
+    
+    // Setup event listeners
+    setupEventListeners();
+    
+    // Update summary
+    updateSummaryDisplay();
+});
+
+function setupEventListeners() {
+    // Product code input
+    document.getElementById('productCode').addEventListener('keypress', function(e) {
+        if (e.key === 'Enter' && !isEditingMode) {
+            searchProductByCode(this.value);
+        }
+    });
+    
+    // Product code input change - detect if user changes code during edit mode
+    document.getElementById('productCode').addEventListener('input', function(e) {
+        if (isEditingMode && editingItemCode && this.value !== editingItemCode) {
+            const newCode = this.value;
+            cancelEditMode();
+            
+            if (newCode && newCode.length >= 3) {
+                setTimeout(() => {
+                    if (document.getElementById('productCode').value === newCode) {
+                        searchProductByCode(newCode);
+                    }
+                }, 300);
+            }
+        }
+    });
+    
+    // Quantity input
+    document.getElementById('quantity').addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+            handleQuantityEnter();
+        }
+    });
+    
+    document.getElementById('quantity').addEventListener('input', function() {
+        calculateItemTotal();
+    });
+    
+    // Search input with keyboard navigation
+    document.getElementById('searchInput').addEventListener('input', function() {
+        loadSearchResults(this.value);
+        keyboardSelectedIndex = -1;
+    });
+    
+    document.getElementById('searchInput').addEventListener('keydown', function(e) {
+        handleSearchKeyNavigation(e);
+    });
+    
+    // Payment amount input
+    document.getElementById('paymentAmount').addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+            processTransaction();
+        }
+    });
+}
+
+// Handle quantity enter
+function handleQuantityEnter() {
+    const product = window.currentProduct;
+    const quantity = parseFloat(document.getElementById('quantity').value);
+    
+    if (!product) {
+        showAlert('Pilih produk terlebih dahulu!');
+        document.getElementById('productCode').focus();
+        return;
+    }
+    
+    if (!quantity || quantity <= 0) {
+        showAlert('Masukkan jumlah yang valid!');
+        document.getElementById('quantity').focus();
+        return;
+    }
+    
+    if (isEditingMode) {
+        updateCartFromForm();
+    } else {
+        addToCart();
+    }
+}
+
+// Cancel edit mode
+function cancelEditMode() {
+    setEditMode(false);
+    editingItemCode = null;
+    window.editingIndex = undefined;
+    
+    // Remove row selection
+    document.querySelectorAll('#cartTableBody tr').forEach(tr => tr.classList.remove('selected'));
+    
+    // Clear form fields except the product code
+    document.getElementById('productName').value = '';
+    document.getElementById('quantity').value = '';
+    document.getElementById('unitPrice').value = '';
+    document.getElementById('totalPrice').value = '';
+    document.getElementById('priceType').value = '';
+    window.currentProduct = null;
+}
+
+// Handle keyboard navigation in search modal
+function handleSearchKeyNavigation(e) {
+    const items = document.querySelectorAll('.product-item');
+    
+    if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        keyboardSelectedIndex = Math.min(keyboardSelectedIndex + 1, items.length - 1);
+        updateKeyboardSelection();
+    } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        keyboardSelectedIndex = Math.max(keyboardSelectedIndex - 1, -1);
+        updateKeyboardSelection();
+    } else if (e.key === 'Enter') {
+        e.preventDefault();
+        if (keyboardSelectedIndex >= 0 && keyboardSelectedIndex < items.length) {
+            const selectedItem = items[keyboardSelectedIndex];
+            const index = parseInt(selectedItem.getAttribute('data-index'));
+            selectProductItem(index, searchResults);
+            addSelectedProductToCart();
+        }
+    }
+}
+
+function updateKeyboardSelection() {
+    const items = document.querySelectorAll('.product-item');
+    
+    // Remove all keyboard selections
+    items.forEach(item => item.classList.remove('keyboard-selected'));
+    
+    // Add keyboard selection to current item
+    if (keyboardSelectedIndex >= 0 && keyboardSelectedIndex < items.length) {
+        const currentItem = items[keyboardSelectedIndex];
+        currentItem.classList.add('keyboard-selected');
+        
+        // Scroll into view
+        currentItem.scrollIntoView({
+            block: 'nearest',
+            behavior: 'smooth'
+        });
+        
+        // Auto-select the item
+        const index = parseInt(currentItem.getAttribute('data-index'));
+        selectProductItem(index, searchResults);
+    }
+}
+
+// Product Search
+function searchProductByCode(code) {
+    if (isEditingMode) {
+        showAlert('Selesaikan edit item terlebih dahulu!');
+        return;
+    }
+    
+    fetch(`/sales/api/cari_barang?q=${encodeURIComponent(code)}&limit=1`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.length > 0) {
+                const exactMatch = data.find(item => 
+                    (item.kode_barang || '').toLowerCase() === code.toLowerCase()
+                );
+                
+                if (exactMatch) {
+                    fillProductData(exactMatch);
+                    document.getElementById('quantity').focus();
+                } else {
+                    openSearchModal();
+                    setTimeout(() => {
+                        document.getElementById('searchInput').value = code;
+                        loadSearchResults(code);
+                    }, 300);
+                }
+            } else {
+                openSearchModal();
+                setTimeout(() => {
+                    document.getElementById('searchInput').value = code;
+                    loadSearchResults(code);
+                }, 300);
+            }
+        })
+        .catch(error => {
+            console.error('Error searching product:', error);
+            showAlert('Terjadi kesalahan saat mencari barang');
+        });
+}
+
+function openSearchModal() {
+    if (isEditingMode) {
+        showAlert('Selesaikan edit item terlebih dahulu!');
+        return;
+    }
+    
+    const modal = new bootstrap.Modal(document.getElementById('searchModal'));
+    modal.show();
+    setTimeout(() => {
+        document.getElementById('searchInput').focus();
+        keyboardSelectedIndex = -1;
+    }, 500);
+}
+
+function loadSearchResults(query) {
+    const resultsContainer = document.getElementById('searchResults');
+    
+    fetch(`/sales/api/cari_barang?q=${encodeURIComponent(query || '')}&limit=10`)
+        .then(response => response.json())
+        .then(data => {
+            searchResults = data;
+            resultsContainer.innerHTML = '';
+            
+            data.forEach((product, index) => {
+                const item = document.createElement('div');
+                item.className = 'product-item';
+                item.setAttribute('data-index', index);
+                
+                const hargaJual = parseFloat(product.harga_jual) || 0;
+                const hargaGrosir = parseFloat(product.harga_grosir) || 0;
+                const stok = parseFloat(product.stok) || 0;
+                const satuan = product.satuan || 'Pcs';
+                const batasMinimalGrosir = parseFloat(product.batas_minimal_grosir) || 10;
+                
+                let hargaDisplay = `Rp ${hargaJual.toLocaleString()}/${satuan}`;
+                if (hargaGrosir > 0) {
+                    hargaDisplay += ` | Grosir: Rp ${hargaGrosir.toLocaleString()} (min. ${batasMinimalGrosir})`;
+                }
+                
+                item.innerHTML = `
+                    <div><strong>${product.nama_barang}</strong></div>
+                    <div style="color: #666; font-size: 0.9em;">
+                        Kode: ${product.kode_barang} | Stok: ${stok} | ${hargaDisplay}
+                    </div>
+                `;
+                
+                item.addEventListener('click', function() {
+                    selectProductItem(index, data);
+                });
+                
+                item.addEventListener('dblclick', function() {
+                    selectProductItem(index, data);
+                    addSelectedProductToCart();
+                });
+                
+                resultsContainer.appendChild(item);
+            });
+            
+            keyboardSelectedIndex = -1;
+        })
+        .catch(error => {
+            console.error('Error loading search results:', error);
+            resultsContainer.innerHTML = '<div class="text-danger p-3">Terjadi kesalahan saat mencari barang.</div>';
+        });
+}
+
+function selectProductItem(index, products) {
+    // Remove previous selection
+    document.querySelectorAll('.product-item').forEach(item => {
+        item.classList.remove('selected', 'keyboard-selected');
+    });
+    
+    // Select current item
+    const selectedItem = document.querySelector(`[data-index="${index}"]`);
+    selectedItem.classList.add('selected');
+    
+    selectedProductIndex = index;
+    keyboardSelectedIndex = index;
+    document.getElementById('addToCartBtn').disabled = false;
+    
+    // Store selected product data
+    window.selectedProduct = products[index];
+}
+
+function addSelectedProductToCart() {
+    if (window.selectedProduct) {
+        const modal = bootstrap.Modal.getInstance(document.getElementById('searchModal'));
+        modal.hide();
+        
+        fillProductData(window.selectedProduct);
+        
+        setTimeout(() => {
+            document.getElementById('quantity').focus();
+        }, 300);
+    }
+}
+
+function fillProductData(product) {
+    document.getElementById('productCode').value = product.kode_barang;
+    document.getElementById('productName').value = product.nama_barang;
+    document.getElementById('unitPrice').value = `Rp ${product.harga_jual.toLocaleString()}`;
+    document.getElementById('priceType').value = 'Eceran';
+    
+    // Store product data for calculation
+    window.currentProduct = product;
+    
+    calculateItemTotal();
+}
+
+function calculateItemTotal() {
+    const quantity = parseFloat(document.getElementById('quantity').value) || 0;
+    const product = window.currentProduct;
+    
+    if (product && quantity > 0) {
+        let unitPrice = product.harga_jual;
+        let priceType = 'Eceran';
+        
+        // Check if wholesale price applies
+        if (product.harga_grosir && quantity >= (product.batas_minimal_grosir || 10)) {
+            unitPrice = product.harga_grosir;
+            priceType = 'Grosir';
+            document.getElementById('unitPrice').value = `Rp ${unitPrice.toLocaleString()}`;
+            document.getElementById('priceType').value = priceType;
+        } else {
+            document.getElementById('unitPrice').value = `Rp ${product.harga_jual.toLocaleString()}`;
+            document.getElementById('priceType').value = 'Eceran';
+        }
+        
+        const total = unitPrice * quantity;
+        document.getElementById('totalPrice').value = `Rp ${total.toLocaleString()}`;
+    } else {
+        document.getElementById('totalPrice').value = '';
+    }
+}
+
+// Cart Management
+function addToCart() {
+    if (!activeQueueId) {
+        showAlert('Pilih atau buat antrean terlebih dahulu!');
+        return;
+    }
+    
+    const activeQueue = salesQueues.find(q => q.id === activeQueueId);
+    if (!activeQueue) {
+        showAlert('Antrean aktif tidak valid!');
+        return;
+    }
+    
+    const product = window.currentProduct;
+    const quantity = parseFloat(document.getElementById('quantity').value);
+    
+    if (!product) {
+        showAlert('Pilih produk terlebih dahulu!');
+        return;
+    }
+    
+    if (!quantity || quantity <= 0) {
+        showAlert('Masukkan jumlah yang valid!');
+        document.getElementById('quantity').focus();
+        return;
+    }
+    
+    if (quantity > product.stok) {
+        showAlert(`Stok tidak mencukupi! Tersedia: ${product.stok}`);
+        return;
+    }
+    
+    // Determine price and type
+    let unitPrice = product.harga_jual;
+    let priceType = 'Eceran';
+    
+    if (product.harga_grosir && quantity >= (product.batas_minimal_grosir || 10)) {
+        unitPrice = product.harga_grosir;
+        priceType = 'Grosir';
+    }
+    
+    const cartItem = {
+        id: product.id,
+        code: product.kode_barang,
+        name: product.nama_barang,
+        quantity: quantity,
+        unitPrice: unitPrice,
+        total: unitPrice * quantity,
+        priceType: priceType,
+        originalProduct: product
+    };
+    
+    // Check if product already exists in cart
+    const existingIndex = activeQueue.cart.findIndex(item => item.id === product.id);
+    
+    if (existingIndex >= 0) {
+        activeQueue.cart[existingIndex].quantity += quantity;
+        activeQueue.cart[existingIndex].total = activeQueue.cart[existingIndex].unitPrice * activeQueue.cart[existingIndex].quantity;
+    } else {
+        activeQueue.cart.push(cartItem);
+    }
+    
+    loadCartData();
+    clearForm();
+    updateQueueCartToBackend(activeQueueId);
+    document.getElementById('productCode').focus();
+}
+
+function loadCartData() {
+    const tableBody = document.getElementById('cartTableBody');
+    const activeQueue = salesQueues.find(q => q.id === activeQueueId);
+    const currentCart = activeQueue ? activeQueue.cart : [];
+    
+    if (currentCart.length === 0) {
+        tableBody.innerHTML = `
+            <tr class="empty-cart">
+                <td colspan="7">
+                    <i class="fas fa-shopping-cart"></i>
+                    <div>Belum ada item dalam keranjang</div>
+                    <small>Scan barcode atau cari barang untuk menambah item</small>
+                </td>
+            </tr>
+        `;
+    } else {
+        tableBody.innerHTML = '';
+        
+        currentCart.forEach((item, index) => {
+            // Handle both modern and classic cart item formats
+            const itemCode = item.code || item.kode || '';
+            const itemName = item.name || item.nama || '';
+            const itemQuantity = item.quantity || item.jumlah || 0;
+            const itemUnitPrice = item.unitPrice || item.harga || 0;
+            const itemTotal = item.total || (itemUnitPrice * itemQuantity) || 0;
+            const itemPriceType = item.priceType || item.tipe_harga || 'eceran';
+            
+            const row = document.createElement('tr');
+            row.setAttribute('data-index', index);
+            row.innerHTML = `
+                <td>${itemCode}</td>
+                <td>${itemName}</td>
+                <td>${itemQuantity}</td>
+                <td>Rp ${parseFloat(itemUnitPrice).toLocaleString()}</td>
+                <td>Rp ${parseFloat(itemTotal).toLocaleString()}</td>
+                <td><span class="badge ${itemPriceType === 'Grosir' || itemPriceType === 'grosir' ? 'bg-info' : 'bg-primary'}">${itemPriceType}</span></td>
+                <td>
+                    <button class="action-btn delete-btn" onclick="deleteCartItem(${index})">
+                        <i class="fas fa-trash"></i> Delete
+                    </button>
+                </td>
+            `;
+            
+            // Add double-click event to edit quantity
+            row.addEventListener('dblclick', function() {
+                editRowInForm(index);
+            });
+            
+            tableBody.appendChild(row);
+        });
+    }
+    
+    calculateGrandTotal();
+}
+
+function editRowInForm(index) {
+    if (isEditingMode) {
+        showAlert('Selesaikan edit item yang sedang berlangsung terlebih dahulu!');
+        return;
+    }
+    
+    const activeQueue = salesQueues.find(q => q.id === activeQueueId);
+    if (!activeQueue) return;
+    
+    const item = activeQueue.cart[index];
+    
+    // Set edit mode
+    setEditMode(true);
+    editingItemCode = item.code;
+    
+    // Fill form with item data
+    document.getElementById('productCode').value = item.code;
+    document.getElementById('productName').value = item.name;
+    document.getElementById('quantity').value = item.quantity;
+    document.getElementById('unitPrice').value = `Rp ${item.unitPrice.toLocaleString()}`;
+    document.getElementById('totalPrice').value = `Rp ${item.total.toLocaleString()}`;
+    document.getElementById('priceType').value = item.priceType;
+    
+    // Store current product and editing index
+    window.currentProduct = item.originalProduct;
+    window.editingIndex = index;
+    
+    // Highlight the row
+    document.querySelectorAll('#cartTableBody tr').forEach(tr => tr.classList.remove('selected'));
+    const row = document.querySelector(`#cartTableBody tr[data-index="${index}"]`);
+    if (row) row.classList.add('selected');
+    
+    // Focus on quantity field
+    document.getElementById('quantity').focus();
+    document.getElementById('quantity').select();
+}
+
+function updateCartFromForm() {
+    if (window.editingIndex !== undefined) {
+        const activeQueue = salesQueues.find(q => q.id === activeQueueId);
+        if (!activeQueue) return;
+        
+        const quantity = parseFloat(document.getElementById('quantity').value);
+        
+        if (!quantity || quantity <= 0) {
+            showAlert('Masukkan jumlah yang valid!');
+            return;
+        }
+        
+        const item = activeQueue.cart[window.editingIndex];
+        const maxStock = item.originalProduct.stok;
+        
+        if (quantity > maxStock) {
+            showAlert(`Stok tidak mencukupi! Tersedia: ${maxStock}`);
+            return;
+        }
+        
+        // Recalculate price type based on new quantity
+        let unitPrice = item.originalProduct.harga_jual;
+        let priceType = 'Eceran';
+        
+        if (item.originalProduct.harga_grosir && quantity >= (item.originalProduct.batas_minimal_grosir || 10)) {
+            unitPrice = item.originalProduct.harga_grosir;
+            priceType = 'Grosir';
+        }
+        
+        item.quantity = quantity;
+        item.unitPrice = unitPrice;
+        item.priceType = priceType;
+        item.total = unitPrice * quantity;
+        
+        loadCartData();
+        clearForm();
+        setEditMode(false);
+        editingItemCode = null;
+        window.editingIndex = undefined;
+        updateQueueCartToBackend(activeQueueId);
+    } else {
+        addToCart();
+    }
+}
+
+function deleteCartItem(index) {
+    const activeQueue = salesQueues.find(q => q.id === activeQueueId);
+    if (!activeQueue) return;
+    
+    const item = activeQueue.cart[index];
+    showConfirmDialog(`Hapus ${item.name} dari keranjang?`, () => {
+        activeQueue.cart.splice(index, 1);
+        loadCartData();
+        updateQueueCartToBackend(activeQueueId);
+        
+        // Clear form if editing this item
+        if (window.editingIndex === index) {
+            clearForm();
+            setEditMode(false);
+            editingItemCode = null;
+            window.editingIndex = undefined;
+        }
+    });
+}
+
+function calculateGrandTotal() {
+    const activeQueue = salesQueues.find(q => q.id === activeQueueId);
+    const currentCart = activeQueue ? activeQueue.cart : [];
+    const total = currentCart.reduce((sum, item) => {
+        const itemTotal = item.total || (parseFloat(item.harga || 0) * parseFloat(item.jumlah || 0));
+        return sum + parseFloat(itemTotal);
+    }, 0);
+    
+    document.getElementById('grandTotal').value = `Rp ${total.toLocaleString()}`;
+    calculateChange();
+    updateSummaryDisplay();
+}
+
+// Payment Management
+function formatCurrency(input) {
+    let value = input.value.replace(/[^\d]/g, '');
+    if (value) {
+        value = parseInt(value).toLocaleString('id-ID');
+        input.value = `Rp ${value}`;
+    }
+    updateSummaryDisplay();
+}
+
+function getActiveQueue() {
+    return salesQueues.find(q => q.id === activeQueueId) || null;
+}
+
+function getActivePaymentMethod() {
+    const sel = document.getElementById('paymentMethod');
+    if (sel && sel.value) return sel.value;
+    const q = getActiveQueue();
+    return (q && q.paymentMethod) ? q.paymentMethod : 'tunai';
+}
+
+function applyPaymentMethodUi() {
+    const method = getActivePaymentMethod();
+    const payInput = document.getElementById('paymentAmount');
+    const totalStr = document.getElementById('grandTotal').value.replace(/[^\d]/g, '');
+    const total = parseInt(totalStr, 10) || 0;
+
+    if (method === 'tunai') {
+        // Enable manual cash input
+        if (payInput) {
+            payInput.disabled = false;
+            payInput.placeholder = 'Rp 0';
+        }
+        calculateChange();
+    } else {
+        // Non-cash: auto pay full and change is zero
+        if (payInput) {
+            payInput.disabled = true;
+            payInput.value = `Rp ${total.toLocaleString('id-ID')}`;
+        }
+        const kembalianDisplay = document.getElementById('changeAmount');
+        if (kembalianDisplay) {
+            kembalianDisplay.value = 'Rp 0';
+            kembalianDisplay.style.color = '#006600';
+        }
+        updateSummaryDisplay();
+    }
+}
+
+function onPaymentMethodChange() {
+    const method = getActivePaymentMethod();
+    const q = getActiveQueue();
+    if (q) {
+        q.paymentMethod = method;
+        if (activeQueueId) {
+            updateQueueCartToBackend(activeQueueId);
+        }
+    }
+    applyPaymentMethodUi();
+}
+
+function calculateChange() {
+    const method = getActivePaymentMethod();
+    const totalStr = document.getElementById('grandTotal').value.replace(/[^\d]/g, '');
+    const total = parseInt(totalStr, 10) || 0;
+
+    if (method !== 'tunai') {
+        // Force full payment and zero change for non-cash methods
+        const payInput = document.getElementById('paymentAmount');
+        if (payInput) payInput.value = `Rp ${total.toLocaleString('id-ID')}`;
+        const kembalianDisplay = document.getElementById('changeAmount');
+        if (kembalianDisplay) {
+            kembalianDisplay.value = 'Rp 0';
+            kembalianDisplay.style.color = '#006600';
+        }
+        updateSummaryDisplay();
+        return;
+    }
+
+    const paymentStr = document.getElementById('paymentAmount').value.replace(/[^\d]/g, '');
+    const payment = parseInt(paymentStr, 10) || 0;
+    const change = payment - total;
+
+    const changeInput = document.getElementById('changeAmount');
+    if (change >= 0) {
+        changeInput.value = `Rp ${change.toLocaleString('id-ID')}`;
+        changeInput.style.color = '#006600';
+        changeInput.style.backgroundColor = '#f0fff0';
+        changeInput.style.borderColor = '#28a745';
+    } else {
+        changeInput.value = `-Rp ${Math.abs(change).toLocaleString('id-ID')}`;
+        changeInput.style.color = '#cc0000';
+        changeInput.style.backgroundColor = '#fff5f5';
+        changeInput.style.borderColor = '#dc3545';
+    }
+    updateSummaryDisplay();
+}
+
+// Update Summary Display
+function updateSummaryDisplay() {
+    const total = document.getElementById('grandTotal').value;
+    const payment = document.getElementById('paymentAmount').value || 'Rp 0';
+    const change = document.getElementById('changeAmount').value;
+    
+    // Determine if change is negative for color styling
+    const isNegative = change.startsWith('-');
+    const changeColor = isNegative ? '#cc0000' : '#006600';
+    
+    // Update desktop summary
+    document.getElementById('summaryTotal').textContent = total;
+    document.getElementById('summaryPayment').textContent = payment;
+    const summaryChange = document.getElementById('summaryChange');
+    summaryChange.textContent = change;
+    summaryChange.style.color = changeColor;
+    
+    // Update mobile summary
+    document.getElementById('summaryTotalMobile').textContent = total;
+    document.getElementById('summaryPaymentMobile').textContent = payment;
+    const summaryChangeMobile = document.getElementById('summaryChangeMobile');
+    summaryChangeMobile.textContent = change;
+    summaryChangeMobile.style.color = changeColor;
+}
+
+// Unified cart and summary refresh
+function updateCartDisplay() {
+    // Re-render cart table and refresh totals/summary
+    loadCartData();
+    updateSummaryDisplay();
+}
+
+function processTransaction() {
+    // Prevent duplicate submissions
+    if (isProcessingPayment) {
+        return;
+    }
+    // Acquire lock immediately to avoid race from rapid key presses
+    isProcessingPayment = true;
+    if (isEditingMode) {
+        showAlert('Selesaikan edit item terlebih dahulu!');
+        isProcessingPayment = false;
+        return;
+    }
+    
+    const activeQueue = salesQueues.find(q => q.id === activeQueueId);
+    if (!activeQueue) {
+        showAlert('Tidak ada antrean aktif!');
+        isProcessingPayment = false;
+        return;
+    }
+    
+    const currentCart = activeQueue.cart || [];
+    const totalStr = document.getElementById('grandTotal').value.replace(/[^\d]/g, '');
+    const paymentStr = document.getElementById('paymentAmount').value.replace(/[^\d]/g, '');
+    
+    let total = parseInt(totalStr) || 0;
+    let payment = parseInt(paymentStr) || 0;
+    const metodePembayaran = getActivePaymentMethod();
+    if (metodePembayaran !== 'tunai') {
+        payment = total; // non-cash pays full amount
+    }
+    
+    // Untuk tunai: jika kolom bayar masih kosong, fokuskan input
+    if (metodePembayaran === 'tunai' && paymentStr === '') {
+        const payInput = document.getElementById('paymentAmount');
+        payInput.focus();
+        if (typeof payInput.select === 'function') {
+            payInput.select();
+        }
+        isProcessingPayment = false;
+        return;
+    }
+    
+    if (currentCart.length === 0) {
+        showAlert('Keranjang kosong!');
+        isProcessingPayment = false;
+        return;
+    }
+    
+    if (total <= 0) {
+        showAlert('Total transaksi tidak valid!');
+        isProcessingPayment = false;
+        return;
+    }
+    
+    if (metodePembayaran === 'tunai' && payment < total) {
+        showAlert('Jumlah bayar kurang dari total!');
+        document.getElementById('paymentAmount').focus();
+        isProcessingPayment = false;
+        return;
+    }
+    
+    // Prepare payment data for backend
+    const paymentData = {
+        queue_id: activeQueue.backendId,
+        items: activeQueue.cart.map(item => ({
+            barang_id: item.id,
+            jumlah: parseFloat(item.quantity) || 0,
+            harga_satuan: parseFloat(item.unitPrice) || 0,
+            subtotal: parseFloat(item.total) || 0,
+            tipe_harga: item.priceType || 'eceran',
+        })),
+        total_harga: total,
+        pelanggan_id: document.getElementById('customerSelect').value || null,
+        metode_pembayaran: metodePembayaran
+    };
+    if (metodePembayaran === 'tunai') {
+        paymentData.jumlah_bayar_tunai = payment;
+    }
+    
+    // Call backend to process payment
+    showLoadingOverlay();
+    
+    fetch('/sales/proses_penjualan', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(paymentData)
+    })
+    .then(response => response.json())
+    .then(data => {
+        hideLoadingOverlay();
+        
+        if (data.success) {
+            const change = (metodePembayaran === 'tunai') ? (payment - total) : 0;
+            
+            // Show completion modal
+            document.getElementById('completionAmount').textContent = `Rp ${change.toLocaleString()}`;
+            
+            const modal = new bootstrap.Modal(document.getElementById('completionModal'));
+            modal.show();
+            
+            // Store transaction data
+            window._lastTransactionData = {
+                id: data.penjualan_id,
+                no_transaksi: data.no_transaksi,
+                change: change,
+                queueName: activeQueue.name
+            };
+            
+            // Focus on "Transaksi Baru" button after modal is shown
+            setTimeout(() => {
+                document.querySelector('.btn-new-transaction').focus();
+            }, 500);
+        } else {
+            showAlert('Pembayaran gagal: ' + (data.message || 'Terjadi kesalahan'));
+        }
+    })
+    .catch(error => {
+        hideLoadingOverlay();
+        console.error('Error processing payment:', error);
+        showAlert('Terjadi kesalahan saat memproses pembayaran. Silakan coba lagi.');
+    })
+    .finally(() => {
+        // Always release the lock
+        isProcessingPayment = false;
+    });
+}
+
+// Transaction Completion
+function newTransaction() {
+    // Clear current cart and close queue
+    const activeQueue = salesQueues.find(q => q.id === activeQueueId);
+    if (activeQueue && activeQueue.backendId) {
+        fetch(`/sales/antrian/${activeQueue.backendId}/hapus`, { method: 'POST' })
+        .then(() => {
+            // Remove completed queue from salesQueues and update UI
+            const idx = salesQueues.findIndex(q => q.id === activeQueueId);
+            if (idx !== -1) {
+                salesQueues.splice(idx, 1);
+                if (salesQueues.length > 0) {
+                    activeQueueId = salesQueues[0].id;
+                    switchTab(activeQueueId);
+                } else {
+                    activeQueueId = null;
+                    // Clear the UI immediately when no queues remain
+                    renderQueueTabs();
+                    loadCartData();
+                    
+                    // Add new queue automatically
+                    applyPaymentMethodUi();
+                    updateQueueUiState();
+                    
+                    // Focus on product code input after initial load
+                    setTimeout(() => {
+                        const productCodeInput = document.getElementById('productCode');
+                        if (productCodeInput) productCodeInput.focus();
+                    }, 200);
+                    
+                    // Initialize toast
+                    document.querySelectorAll('.toast').forEach(toastEl => {
+                        new bootstrap.Toast(toastEl, {
+                            delay: 3000
+                        });
+                    });
+                    
+                    // Initialize keyboard shortcuts
+                    initKeyboardShortcuts();
+                    document.getElementById('paymentAmount').value = '';
+                    document.getElementById('changeAmount').value = 'Rp 0';
+                    
+                    // Reset edit mode
+                    setEditMode(false);
+                    return; // Exit early since UI is already updated
+                }
+                renderQueueTabs();
+                loadCartData();
+            }
+        });
+    }
+    
+    // Reset form
+    clearForm();
+    editingItemCode = null;
+    
+    // Close modal
+    const modal = bootstrap.Modal.getInstance(document.getElementById('completionModal'));
+    modal.hide();
+    
+    // Focus on product code input
+    setTimeout(() => {
+        document.getElementById('productCode').focus();
+    }, 300);
+    updateQueueUiState();
+}
+
+function printReceipt() {
+    if (window._lastTransactionData && window._lastTransactionData.id) {
+        window.open(`/sales/struk/${window._lastTransactionData.id}?auto_print=1`, '_blank');
+    } else {
+        showAlert('Data transaksi tidak ditemukan!');
+    }
+    newTransaction();
+}
+
+// Utility Functions
+function clearForm() {
+    document.getElementById('productCode').value = '';
+    document.getElementById('productName').value = '';
+    document.getElementById('quantity').value = '';
+    document.getElementById('unitPrice').value = '';
+    document.getElementById('totalPrice').value = '';
+    document.getElementById('priceType').value = '';
+    window.currentProduct = null;
+    
+    // Remove row selection
+    document.querySelectorAll('#cartTableBody tr').forEach(tr => tr.classList.remove('selected'));
+}
+
+// Custom Modal Functions
+let activeAlertModal = null;
+
+function showAlert(message) {
+    // Check if the same alert is already showing
+    if (activeAlertModal && activeAlertModal.message === message) {
+        return; // Don't show duplicate alert
+    }
+    
+    // Close existing alert if different message
+    if (activeAlertModal) {
+        activeAlertModal.modal.hide();
+    }
+    
+    const modal = document.createElement('div');
+    modal.className = 'modal fade';
+    modal.innerHTML = `
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Peringatan</h5>
+                </div>
+                <div class="modal-body">
+                    <p>${message}</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-primary" data-bs-dismiss="modal">OK</button>
+                </div>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(modal);
+    const bootstrapModal = new bootstrap.Modal(modal);
+    
+    // Store reference to active modal
+    activeAlertModal = {
+        modal: bootstrapModal,
+        message: message,
+        element: modal
+    };
+    
+    bootstrapModal.show();
+    modal.addEventListener('hidden.bs.modal', function() {
+        document.body.removeChild(modal);
+        activeAlertModal = null; // Clear reference when modal is closed
+    });
+}
+
+let activeConfirmModal = null;
+
+function showConfirmDialog(message, onConfirm) {
+    // Check if the same confirm dialog is already showing
+    if (activeConfirmModal && activeConfirmModal.message === message) {
+        return; // Don't show duplicate confirm dialog
+    }
+    
+    // Close existing confirm dialog if different message
+    if (activeConfirmModal) {
+        activeConfirmModal.modal.hide();
+    }
+    
+    const modal = document.createElement('div');
+    modal.className = 'modal fade';
+    modal.innerHTML = `
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Konfirmasi</h5>
+                </div>
+                <div class="modal-body">
+                    <p>${message}</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+                    <button type="button" class="btn btn-primary confirm-btn">Konfirmasi</button>
+                </div>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(modal);
+    const bootstrapModal = new bootstrap.Modal(modal);
+    
+    // Store reference to active modal
+    activeConfirmModal = {
+        modal: bootstrapModal,
+        message: message,
+        element: modal
+    };
+    
+    bootstrapModal.show();
+    
+    modal.querySelector('.confirm-btn').addEventListener('click', function() {
+        bootstrapModal.hide();
+        onConfirm();
+    });
+    
+    modal.addEventListener('hidden.bs.modal', function() {
+        document.body.removeChild(modal);
+        activeConfirmModal = null; // Clear reference when modal is closed
+    });
+}
+
+// Keyboard Shortcuts
+document.addEventListener('keydown', function(e) {
+    // Allow function keys and Escape anywhere; block other shortcuts while typing
+    const tag = e.target.tagName;
+    const isInputLike = tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || (e.target.isContentEditable === true);
+    const isFunctionKey = /^F\d{1,2}$/.test(e.key);
+    const modalOpen = document.querySelector('.modal.show');
+    // Prevent auto-repeat causing duplicate actions (e.g., F2 held down)
+    if (isFunctionKey && e.repeat) {
+        e.preventDefault();
+        return;
+    }
+    // Jika ada modal terbuka, blok hanya function keys (kecuali Escape) agar tidak memicu shortcut,
+    // namun tetap izinkan pengetikan normal di input modal (mis. #searchInput)
+    if (modalOpen && isFunctionKey && e.key !== 'Escape') {
+        e.preventDefault();
+        return;
+    }
+    // Izinkan pengetikan normal di input/textarea/select
+    if (isInputLike && !isFunctionKey) {
+        return;
+    }
+    
+    // F1 - Search Product (only if not in edit mode)
+    if (e.key === 'F1') {
+        e.preventDefault();
+        if (!isEditingMode) {
+            const hasQueue = !!activeQueueId && salesQueues.length > 0;
+            if (!hasQueue) {
+                showAlert('Belum ada antrean. Tambah antrean dulu (F4).');
+                return;
+            }
+            openSearchModal();
+        }
+    }
+    
+    // F2 - Proses Pembayaran
+    if (e.key === 'F2') {
+        e.preventDefault();
+        processTransaction();
+    }
+    
+    // F3 - Reset Antrean
+    if (e.key === 'F3') {
+        e.preventDefault();
+        resetActiveQueue();
+    }
+    
+    // F4 - Tambah Antrean
+    if (e.key === 'F4') {
+        e.preventDefault();
+        addNewTab();
+        document.getElementById("productCode").focus()
+    }
+
+    // F7 - Antrean Sebelumnya
+    if (e.key === 'F7') {
+        e.preventDefault();
+        switchToPrevQueue();
+    }
+
+    // F8 - Antrean Selanjutnya
+    if (e.key === 'F8') {
+        e.preventDefault();
+        switchToNextQueue();
+    }
+    
+    // F5 - Toggle Summary
+    if (e.key === 'F9') {
+        e.preventDefault();
+        toggleSummaryBox();
+    }
+    
+    // Escape - Cancel edit mode
+    if (e.key === 'Escape' && isEditingMode) {
+        e.preventDefault();
+        cancelEditMode();
+    }
+});
+
+// Auto-focus management
+document.getElementById('searchModal').addEventListener('shown.bs.modal', function() {
+    document.getElementById('searchInput').focus();
+});
+
+// Keyboard navigation for completion modal (Arrow keys, Enter/Space; N for New, P for Print)
+const completionModalEl = document.getElementById('completionModal');
+if (completionModalEl) {
+    // Ensure initial focus on "Transaksi Baru" when modal is shown
+    completionModalEl.addEventListener('shown.bs.modal', function() {
+        const firstBtn = completionModalEl.querySelector('.btn-new-transaction') || completionModalEl.querySelector('.completion-btn');
+        if (firstBtn) firstBtn.focus();
+    });
+
+    const handleCompletionKeydown = function(e) {
+        // Only handle when the completion modal is visible
+        if (!completionModalEl.classList.contains('show')) return;
+
+        const buttons = Array.from(completionModalEl.querySelectorAll('.completion-btn'));
+        if (!buttons.length) return;
+
+        const currentIndex = buttons.indexOf(document.activeElement);
+
+        if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+            e.preventDefault();
+            const next = currentIndex === -1 ? 0 : (currentIndex + 1) % buttons.length;
+            buttons[next].focus();
+        } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+            e.preventDefault();
+            const prev = currentIndex === -1 ? buttons.length - 1 : (currentIndex - 1 + buttons.length) % buttons.length;
+            buttons[prev].focus();
+        } else if (e.key === 'Enter' || e.key === ' ') {
+            if (document.activeElement && document.activeElement.classList.contains('completion-btn')) {
+                e.preventDefault();
+                document.activeElement.click();
+            }
+        } else if (typeof e.key === 'string') {
+            const k = e.key.toLowerCase();
+            if (k === 'n') {
+                e.preventDefault();
+                const btn = completionModalEl.querySelector('.btn-new-transaction');
+                if (btn) { btn.focus(); btn.click(); }
+            } else if (k === 'p') {
+                e.preventDefault();
+                const btn = completionModalEl.querySelector('.btn-print');
+                if (btn) { btn.focus(); btn.click(); }
+            }
+        }
+    };
+
+    // Attach to the modal root so it only works while focused inside modal
+    completionModalEl.addEventListener('keydown', handleCompletionKeydown);
+    // Keep handler attached; it guards itself by checking modal visibility
+}
+
+// Close modal on Escape key
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+        const modals = document.querySelectorAll('.modal.show');
+        modals.forEach(modal => {
+            const modalInstance = bootstrap.Modal.getInstance(modal);
+            if (modalInstance && modal.id !== 'completionModal') {
+                modalInstance.hide();
+            }
+        });
+    }
+});
+</script>
+
+{% endblock %}
