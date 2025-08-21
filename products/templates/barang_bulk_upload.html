@@ -71,4 +71,29 @@
     <!-- SweetAlert2 & FontAwesome -->
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script src="{{ url_for('products.static', filename='js/bulk_upload.js') }}"></script>
+
+    <!-- Bulk Apply Progress Modal -->
+    <div class="modal fade" id="bulkProgressModal" tabindex="-1" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
+      <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title"><i class="fas fa-database me-2"></i>Memasukkan Data ke Database</h5>
+            <!-- No close button to prevent exit -->
+          </div>
+          <div class="modal-body">
+            <div class="mb-2 d-flex justify-content-between align-items-center">
+              <span class="fw-semibold text-secondary"><i class="fas fa-tasks me-2"></i>Progress</span>
+              <span id="modal-progress-counts" class="small text-muted"></span>
+            </div>
+            <div class="progress" style="height: 20px;">
+              <div id="modal-progress-bar" class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width:0%">0%</div>
+            </div>
+            <div id="modal-progress-note" class="form-text mt-2">Jangan tutup halaman ini sampai proses selesai.</div>
+          </div>
+          <div class="modal-footer">
+            <button id="modal-close-btn" type="button" class="btn btn-primary d-none" data-bs-dismiss="modal">Selesai</button>
+          </div>
+        </div>
+      </div>
+    </div>
 {% endblock %}

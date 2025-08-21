@@ -415,3 +415,9 @@ BE A BETTER CODER AND PROGRAMMER !!!*/
     font-weight: bold;
     margin-right: 10px;
 }
+
+/* Bulk progress modal width (Bootstrap 5) */
+#bulkProgressModal {
+    /* Define on the modal container to override modal.scss default (500px) */
+    --bs-modal-width: 700px;
+}

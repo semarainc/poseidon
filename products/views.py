@@ -8,6 +8,8 @@ from datetime import datetime
 from sqlalchemy import func, or_, inspect as sqlalchemy_inspect
 
 from openpyxl import Workbook
+import threading
+import time
 from werkzeug.utils import secure_filename
 
 # Import dari paket models (menggunakan models/models.py)
@@ -16,6 +18,10 @@ from flask_login import login_required, current_user
 
 products_blueprint = Blueprint('products', __name__, template_folder='templates', static_folder='static', url_prefix='/products')
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
+
+# In-memory store for bulk upload job progress
+# Structure: { job_id: { 'total': int, 'processed': int, 'inserted': int, 'updated': int, 'failed': int, 'done': bool, 'error': str|None } }
+bulk_apply_jobs = {}
 
 def allowed_file(filename):
     return '.' in filename and \
@@ -156,6 +162,169 @@ def apply_bulk_upload():
             print("Error Occured", e)
             traceback.print_exc()
     return jsonify({'success': True, 'inserted': inserted, 'updated': updated, 'failed': failed})
+
+# --- BULK UPLOAD (ASYNCHRONOUS WITH PROGRESS) ---
+@products_blueprint.route('/start_bulk_apply', methods=['POST'])
+@login_required
+def start_bulk_apply():
+    """Start background job to apply bulk items and return a job_id to poll progress.
+    """
+    data = request.get_json(silent=True) or {}
+    items = data.get('items', [])
+    if not items:
+        return jsonify({'success': False, 'message': 'Data barang kosong'}), 400
+
+    job_id = str(uuid.uuid4())
+    bulk_apply_jobs[job_id] = {
+        'total': len(items),
+        'processed': 0,
+        'inserted': 0,
+        'updated': 0,
+        'failed': 0,
+        'done': False,
+        'error': None,
+    }
+
+    def worker(app_context, job_id, items):
+        with app_context:
+            inserted = updated = failed = 0
+            processed = 0
+            for item in items:
+                try:
+                    # --- replicate core logic from apply_bulk_upload ---
+                    import datetime as _dt
+                    # Kategori
+                    kategori = (item.get('kategori') or '').strip()
+                    if kategori:
+                        kat_obj = Kategori.query.filter(func.lower(Kategori.nama) == kategori.lower()).first()
+                        if not kat_obj:
+                            kat_obj = Kategori(nama=kategori)
+                            db.session.add(kat_obj)
+                            db.session.commit()
+                    # Satuan
+                    satuan = (item.get('satuan') or '').strip()
+                    if satuan:
+                        sat_obj = Satuan.query.filter(func.lower(Satuan.nama) == satuan.lower()).first()
+                        if not sat_obj:
+                            sat_obj = Satuan(nama=satuan)
+                            db.session.add(sat_obj)
+                            db.session.commit()
+                    # Supplier
+                    supplier_nama = (item.get('supplier') or '').strip()
+                    supplier_obj = None
+                    supplier_id = None
+                    if supplier_nama:
+                        supplier_obj = Supplier.query.filter(func.lower(Supplier.nama) == supplier_nama.lower()).first()
+                        if not supplier_obj:
+                            try:
+                                supplier_obj = Supplier(nama=supplier_nama)
+                                db.session.add(supplier_obj)
+                                db.session.flush()
+                            except Exception:
+                                db.session.rollback()
+                                traceback.print_exc()
+                                # Try fetch again to avoid race condition
+                                supplier_obj = Supplier.query.filter(func.lower(Supplier.nama) == supplier_nama.lower()).first()
+                                if not supplier_obj:
+                                    failed += 1
+                                    processed += 1
+                                    bulk_apply_jobs[job_id].update({'processed': processed, 'inserted': inserted, 'updated': updated, 'failed': failed})
+                                    continue
+                        supplier_id = supplier_obj.id
+
+                    # Barang
+                    kode_barang = (item.get('kode_barang') or '').strip()
+                    if not kode_barang:
+                        failed += 1
+                        processed += 1
+                        bulk_apply_jobs[job_id].update({'processed': processed, 'inserted': inserted, 'updated': updated, 'failed': failed})
+                        continue
+
+                    barang = Barang.query.filter_by(kode_barang=kode_barang).first()
+                    tanggal_kadaluarsa = item.get('tanggal_kadaluarsa')
+                    if tanggal_kadaluarsa and isinstance(tanggal_kadaluarsa, str):
+                        try:
+                            tanggal_kadaluarsa = _dt.datetime.strptime(tanggal_kadaluarsa, '%Y-%m-%d').date()
+                        except Exception:
+                            tanggal_kadaluarsa = None
+
+                    if not barang:
+                        barang = Barang(
+                            kode_barang=kode_barang,
+                            nama_barang=item.get('nama_barang'),
+                            kategori=kategori,
+                            stok=float(item.get('stok') or 0),
+                            batas_minimal_grosir=float(item.get('stok_minimal_grosir') or 0),
+                            harga_pokok=float(item.get('harga_pokok') or 0),
+                            harga_jual=float(item.get('harga_jual') or 0),
+                            harga_grosir=float(item.get('harga_grosir') or 0),
+                            satuan=satuan,
+                            tanggal_kadaluarsa=tanggal_kadaluarsa,
+                            supplier_id=supplier_id
+                        )
+                        db.session.add(barang)
+                        inserted += 1
+                    else:
+                        barang.nama_barang = item.get('nama_barang')
+                        barang.kategori = kategori
+                        barang.stok = float(item.get('stok') or 0)
+                        barang.batas_minimal_grosir = float(item.get('stok_minimal_grosir') or 0)
+                        barang.harga_pokok = float(item.get('harga_pokok') or 0)
+                        barang.harga_jual = float(item.get('harga_jual') or 0)
+                        barang.harga_grosir = float(item.get('harga_grosir') or 0)
+                        barang.satuan = satuan
+                        barang.tanggal_kadaluarsa = tanggal_kadaluarsa
+                        barang.supplier_id = supplier_id
+                        updated += 1
+
+                    try:
+                        db.session.commit()
+                    except Exception as e:
+                        db.session.rollback()
+                        failed += 1
+                        current_app.logger.error(f"Bulk apply commit error: {e}")
+
+                    processed += 1
+                    # Update job progress
+                    bulk_apply_jobs[job_id].update({
+                        'processed': processed,
+                        'inserted': inserted,
+                        'updated': updated,
+                        'failed': failed,
+                    })
+
+                    # Small sleep to avoid starving event loop (optional)
+                    time.sleep(0.001)
+                except Exception as e:
+                    # Catch any unexpected per-item error
+                    db.session.rollback()
+                    failed += 1
+                    processed += 1
+                    current_app.logger.error(f"Bulk apply item error: {e}")
+                    bulk_apply_jobs[job_id].update({
+                        'processed': processed,
+                        'inserted': inserted,
+                        'updated': updated,
+                        'failed': failed,
+                        'error': str(e),
+                    })
+
+            # Mark done
+            bulk_apply_jobs[job_id]['done'] = True
+
+    # Launch background thread
+    t = threading.Thread(target=worker, args=(current_app.app_context(), job_id, items), daemon=True)
+    t.start()
+
+    return jsonify({'success': True, 'job_id': job_id})
+
+@products_blueprint.route('/bulk_apply_status/<job_id>', methods=['GET'])
+@login_required
+def bulk_apply_status(job_id):
+    job = bulk_apply_jobs.get(job_id)
+    if not job:
+        return jsonify({'success': False, 'message': 'Job tidak ditemukan'}), 404
+    return jsonify({'success': True, **job})
 
 # --- MANAJEMEN BARANG ---
 @products_blueprint.route('/', strict_slashes=False)

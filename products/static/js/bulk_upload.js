@@ -155,7 +155,7 @@ function handleFileUpload() {
         data: formData,
         processData: false,
         contentType: false,
-        timeout: 30000, // 30 second timeout
+        timeout: 300000, // 5 minute timeout for large files
         success: function(resp) {
             Swal.close();
             if (resp.success) {
@@ -231,85 +231,147 @@ function applyDataToDatabase() {
         confirmButtonColor: '#28a745',
         cancelButtonColor: '#6c757d'
     }).then((result) => {
-        if (result.isConfirmed) {
-            Swal.fire({
-                title: 'Memproses...',
-                text: 'Sedang menyimpan data ke database',
-                allowOutsideClick: false,
-                showConfirmButton: false,
-                didOpen: () => {
-                    Swal.showLoading();
+        if (!result.isConfirmed) {
+            $('#apply-btn').prop('disabled', false);
+            return;
+        }
+
+        // Reset progress (modal only)
+
+        // Show non-dismissible Bootstrap modal
+        try {
+            const modalEl = document.getElementById('bulkProgressModal');
+            if (modalEl && window.bootstrap) {
+                // Force modal width via JS to avoid CSS overrides
+                try {
+                    modalEl.style.setProperty('--bs-modal-width', '700px');
+                    const dialogEl = modalEl.querySelector('.modal-dialog');
+                    if (dialogEl) {
+                        dialogEl.style.maxWidth = '700px';
+                        dialogEl.style.width = '100%';
+                    }
+                } catch (e) {}
+                // Reset modal UI
+                $('#modal-progress-bar').css('width', '0%').text('0%');
+                $('#modal-progress-counts').text(`0/${previewData.length} diproses • ✅ 0 tambah • 🔄 0 update • ❌ 0 gagal`);
+                $('#modal-close-btn').addClass('d-none');
+                const modal = bootstrap.Modal.getOrCreateInstance(modalEl, { backdrop: 'static', keyboard: false });
+                modal.show();
+                window.__bulkProgressModal = modal; // store for later
+            }
+        } catch (e) {
+            console.warn('Progress modal unavailable:', e);
+        }
+
+        // Start background job
+        $.ajax({
+            url: '/products/start_bulk_apply',
+            type: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify({ items: previewData }),
+            timeout: 60000, // start request only
+            success: function(startResp) {
+                if (!startResp.success || !startResp.job_id) {
+                    Swal.fire('Error', startResp.message || 'Gagal memulai proses', 'error');
+                    $('#apply-btn').prop('disabled', false);
+                    return;
                 }
-            });
-            
-            $.ajax({
-                url: '/products/apply_bulk_upload',
-                type: 'POST',
-                contentType: 'application/json',
-                data: JSON.stringify({items: previewData}),
-                timeout: 60000, // 60 second timeout
-                success: function(resp) {
-                    Swal.close();
-                    if (resp.success) {
-                        // Update status per baris dari backend jika tersedia
-                        if (resp.statuses && resp.statuses.length > 0) {
-                            resp.statuses.forEach((stat, i) => {
-                                if (previewData[i]) {
-                                    previewData[i]['Status'] = stat;
-                                }
-                            });
-                        } else {
-                            // Jika tidak ada status detail, update berdasarkan hasil umum
-                            previewData.forEach((row, i) => {
-                                if (i < (resp.inserted || 0)) {
-                                    row['Status'] = 'Berhasil Input';
-                                } else if (i < ((resp.inserted || 0) + (resp.updated || 0))) {
-                                    row['Status'] = 'Update';
-                                } else {
-                                    row['Status'] = 'Gagal';
-                                }
-                            });
+
+                // Poll for status
+                const jobId = startResp.job_id;
+                const intervalMs = 1000; // 1s
+                let elapsedMs = 0;
+                const maxElapsedMs = 2 * 60 * 60 * 1000; // 2 hours
+                const poller = setInterval(() => {
+                    elapsedMs += intervalMs;
+                    $.ajax({
+                        url: `/products/bulk_apply_status/${jobId}`,
+                        type: 'GET',
+                        cache: false,
+                        success: function(stat) {
+                            if (!stat.success) return;
+                            updateModalProgress(stat);
+                            if (stat.done) {
+                                clearInterval(poller);
+                                onBulkApplyFinished(stat);
+                            }
+                        },
+                        error: function() {
+                            // keep polling; optionally show a subtle warning
                         }
-                        
-                        // Re-render table dengan status terbaru
-                        renderPreviewTable();
-                        $('#edit-again-btn').removeClass('d-none');
-                        $('#apply-btn').prop('disabled', true);
-                        
-                        let message = `<div class="text-left">`;
-                        message += `<strong>Proses berhasil!</strong><br>`;
-                        message += `✅ Barang baru: ${resp.inserted || 0}<br>`;
-                        message += `🔄 Update: ${resp.updated || 0}<br>`;
-                        message += `❌ Gagal: ${resp.failed || 0}`;
-                        message += `</div>`;
-                        
-                        Swal.fire({
-                            title: 'Sukses',
-                            html: message,
-                            icon: 'success',
-                            confirmButtonText: 'OK'
-                        });
-                    } else {
-                        Swal.fire('Error', resp.message || 'Gagal menyimpan data', 'error');
+                    });
+                    if (elapsedMs >= maxElapsedMs) {
+                        clearInterval(poller);
+                        Swal.fire('Error', 'Proses terlalu lama dan dihentikan. Coba lagi atau bagi file menjadi lebih kecil.', 'error');
                         $('#apply-btn').prop('disabled', false);
                     }
-                },
-                error: function(xhr, status, error) {
-                    Swal.close();
-                    let errorMsg = 'Gagal apply data';
-                    if (status === 'timeout') {
-                        errorMsg = 'Proses timeout. Data terlalu banyak atau server sibuk.';
-                    } else if (xhr.responseJSON && xhr.responseJSON.message) {
-                        errorMsg = xhr.responseJSON.message;
-                    }
-                    Swal.fire('Error', errorMsg, 'error');
-                    $('#apply-btn').prop('disabled', false);
-                }
-            });
-        } else {
-            $('#apply-btn').prop('disabled', false);
-        }
+                }, intervalMs);
+            },
+            error: function(xhr, status) {
+                let msg = 'Gagal memulai proses';
+                if (status === 'timeout') msg = 'Timeout memulai proses';
+                Swal.fire('Error', msg, 'error');
+                $('#apply-btn').prop('disabled', false);
+            }
+        });
     });
+}
+
+function updateProgressUI(stat) {
+    const total = stat.total || 0;
+    const processed = stat.processed || 0;
+    const inserted = stat.inserted || 0;
+    const updated = stat.updated || 0;
+    const failed = stat.failed || 0;
+    const percent = total ? Math.floor((processed / total) * 100) : 0;
+    $('#bulk-progress-bar')
+        .css('width', percent + '%')
+        .text(percent + '%');
+    $('#progress-counts').text(`${processed}/${total} diproses • ✅ ${inserted} tambah • 🔄 ${updated} update • ❌ ${failed} gagal`);
+}
+
+function updateModalProgress(stat) {
+    const total = stat.total || 0;
+    const processed = stat.processed || 0;
+    const inserted = stat.inserted || 0;
+    const updated = stat.updated || 0;
+    const failed = stat.failed || 0;
+    const percent = total ? Math.floor((processed / total) * 100) : 0;
+    $('#modal-progress-bar')
+        .css('width', percent + '%')
+        .text(percent + '%');
+    $('#modal-progress-counts').text(`${processed}/${total} diproses • ✅ ${inserted} tambah • 🔄 ${updated} update • ❌ ${failed} gagal`);
+}
+
+function onBulkApplyFinished(stat) {
+    // Final UI (modal only)
+    updateModalProgress(stat);
+
+    // Update table statuses approximately using totals if per-row statuses not available
+    const inserted = stat.inserted || 0;
+    const updated = stat.updated || 0;
+    const failed = stat.failed || 0;
+    previewData.forEach((row, i) => {
+        if (i < inserted) row['Status'] = 'Berhasil Input';
+        else if (i < inserted + updated) row['Status'] = 'Update';
+        else if (failed > 0) row['Status'] = 'Gagal';
+        else row['Status'] = 'Berhasil';
+    });
+    renderPreviewTable();
+    $('#edit-again-btn').removeClass('d-none');
+    $('#apply-btn').prop('disabled', true);
+
+    // Optional: write summary inside the modal note
+    const summary = `Selesai. ✅ ${inserted} tambah • 🔄 ${updated} update • ❌ ${failed} gagal`;
+    $('#modal-progress-note').text(summary);
+
+    // Enable closing the modal
+    $('#modal-close-btn').removeClass('d-none');
+    try {
+        // Keep modal open until user clicks Selesai
+        // Optionally stop animation
+        $('#modal-progress-bar').removeClass('progress-bar-animated');
+    } catch (e) {}
 }
 
 function updateDataStats() {
