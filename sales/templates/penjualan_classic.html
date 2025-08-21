@@ -20,6 +20,13 @@
     overflow-x: auto;
     white-space: nowrap;
     scrollbar-width: thin;
+    position: relative; /* for nav buttons */
+}
+
+/* Enable smooth horizontal scroll + snap for tabs container */
+#tabContainer {
+    scroll-behavior: smooth;
+    scroll-snap-type: x mandatory;
 }
 
 .classic-tabs::-webkit-scrollbar {
@@ -49,6 +56,7 @@
     transition: all 0.3s ease;
     flex-shrink: 0;
     min-width: 120px;
+    scroll-snap-align: start;
 }
 
 .classic-tab.active {
@@ -99,6 +107,27 @@
     background: #4cae4c;
     transform: translateY(-1px);
 }
+
+/* Small-screen nav arrows for the tabs */
+.tabs-nav-btn {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    border: 1px solid #ced4da;
+    background: #ffffff;
+    color: #495057;
+    display: none; /* default hidden, toggled via JS and utility classes */
+    align-items: center;
+    justify-content: center;
+    z-index: 2;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+}
+
+.tabs-nav-left { left: 6px; }
+.tabs-nav-right { right: 6px; }
 
 .form-section {
     background: var(--white);
@@ -523,8 +552,9 @@
     }
     
     .classic-tab {
-        min-width: 100px;
+        min-width: 88px;
         font-size: 0.9rem;
+        padding: 0.45rem 0.75rem;
     }
     
     .input-group-classic {
@@ -581,13 +611,9 @@
         padding: 0.8rem;
         border-radius: 0 var(--border-radius) var(--border-radius) 0;
     }
-    
-    .summary-item {
-        flex-direction: column;
-        text-align: center;
-        margin-bottom: 0.3rem;
-        padding: 0.3rem;
-    }
+
+    /* Show nav buttons on small screens by default; JS will hide if not needed */
+    .tabs-nav-btn { display: flex; }
     
     .summary-label {
         font-size: 0.7rem;
@@ -608,8 +634,8 @@
     }
     
     .classic-tab {
-        min-width: 80px;
-        padding: 0.4rem 0.8rem;
+        min-width: 76px;
+        padding: 0.35rem 0.6rem;
         font-size: 0.8rem;
     }
     
@@ -753,6 +779,13 @@
     </div>
     <button class="add-tab-btn" onclick="addNewTab()" title="Tambah Antrean Baru (F4)">
         <i class="fas fa-plus"></i> Tambah
+    </button>
+    <!-- Small-screen navigation buttons for horizontal tab scrolling -->
+    <button type="button" class="tabs-nav-btn tabs-nav-left" aria-label="Scroll kiri" onclick="scrollTabContainer(-1)">
+        <i class="fas fa-chevron-left"></i>
+    </button>
+    <button type="button" class="tabs-nav-btn tabs-nav-right" aria-label="Scroll kanan" onclick="scrollTabContainer(1)">
+        <i class="fas fa-chevron-right"></i>
     </button>
 </div>
 
@@ -1050,6 +1083,16 @@ async function switchViewMode(mode) {
                 console.log('Classic: Prepared item for transition with stock:', item.stok_awal, 'originalProduct.stok:', item.originalProduct?.stok);
                 console.log('Classic: Prepared item for transition:', JSON.stringify(item, null, 2));
             });
+
+function setupTabsNavObservers() {
+    const container = document.getElementById('tabContainer');
+    if (!container) return;
+    const debouncedUpdate = debounce(updateTabsNavVisibility, 100);
+    container.addEventListener('scroll', debouncedUpdate);
+    window.addEventListener('resize', debouncedUpdate);
+    // Initial check
+    setTimeout(updateTabsNavVisibility, 0);
+}
         }
     });
     
@@ -1510,6 +1553,52 @@ function renderQueueTabs() {
         
         tabsContainer.appendChild(tabDiv);
     });
+    // Update nav buttons visibility after (re)render
+    updateTabsNavVisibility();
+}
+
+// === SMALL-SCREEN TAB NAV HELPERS ===
+function hasHorizontalOverflow(el) {
+    if (!el) return false;
+    return el.scrollWidth > el.clientWidth + 1; // +1 for rounding
+}
+
+function updateTabsNavVisibility() {
+    const container = document.getElementById('tabContainer');
+    const leftBtn = document.querySelector('.tabs-nav-left');
+    const rightBtn = document.querySelector('.tabs-nav-right');
+    if (!container || !leftBtn || !rightBtn) return;
+
+    const overflow = hasHorizontalOverflow(container);
+    if (!overflow) {
+        leftBtn.style.display = 'none';
+        rightBtn.style.display = 'none';
+        return;
+    }
+
+    const maxScrollLeft = container.scrollWidth - container.clientWidth - 2;
+    const atStart = container.scrollLeft <= 2;
+    const atEnd = container.scrollLeft >= maxScrollLeft;
+
+    leftBtn.style.display = atStart ? 'none' : 'flex';
+    rightBtn.style.display = atEnd ? 'none' : 'flex';
+}
+
+function scrollTabContainer(direction) {
+    const container = document.getElementById('tabContainer');
+    if (!container) return;
+    const amount = Math.max(120, Math.floor(container.clientWidth * 0.8));
+    container.scrollBy({ left: direction * amount, behavior: 'smooth' });
+    // Update after the smooth scroll settles
+    setTimeout(updateTabsNavVisibility, 250);
+}
+
+function debounce(fn, wait) {
+    let t;
+    return function(...args) {
+        clearTimeout(t);
+        t = setTimeout(() => fn.apply(this, args), wait);
+    };
 }
 
 // Reset current queue (clear all items)
@@ -1658,64 +1747,107 @@ document.addEventListener('DOMContentLoaded', async function() {
         }
     }
     
-    // Setup event listeners
-    setupEventListeners();
-    
     // Update summary
     updateSummaryDisplay();
+
+    // Initialize current date/time display and keep it updated periodically
+    const currentDateEl = document.getElementById('currentDate');
+    if (currentDateEl) {
+        const updateCurrentDateTime = () => {
+            const now = new Date();
+            try {
+                // Try nice Indonesian locale formatting
+                currentDateEl.value = now.toLocaleString('id-ID', {
+                    year: 'numeric', month: '2-digit', day: '2-digit',
+                    hour: '2-digit', minute: '2-digit', second: '2-digit'
+                });
+            } catch (_) {
+                // Fallback
+                currentDateEl.value = now.toISOString().slice(0, 19).replace('T', ' ');
+            }
+        };
+        updateCurrentDateTime();
+        // Refresh every 30 seconds to stay current during long sessions
+        setInterval(updateCurrentDateTime, 30000);
+    }
+    
+    // Setup event listeners (guarded to avoid blocking date/time initialization)
+    try {
+        setupEventListeners();
+    } catch (e) {
+        console.warn('setupEventListeners failed:', e);
+    }
+    if (typeof setupTabsNavObservers === 'function') {
+        setupTabsNavObservers();
+    } else {
+        console.warn('setupTabsNavObservers is not defined at runtime');
+    }
 });
 
 function setupEventListeners() {
     // Product code input
-    document.getElementById('productCode').addEventListener('keypress', function(e) {
-        if (e.key === 'Enter' && !isEditingMode) {
-            searchProductByCode(this.value);
-        }
-    });
-    
-    // Product code input change - detect if user changes code during edit mode
-    document.getElementById('productCode').addEventListener('input', function(e) {
-        if (isEditingMode && editingItemCode && this.value !== editingItemCode) {
-            const newCode = this.value;
-            cancelEditMode();
-            
-            if (newCode && newCode.length >= 3) {
-                setTimeout(() => {
-                    if (document.getElementById('productCode').value === newCode) {
-                        searchProductByCode(newCode);
-                    }
-                }, 300);
+    const productCodeEl = document.getElementById('productCode');
+    if (productCodeEl) {
+        productCodeEl.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter' && !isEditingMode) {
+                searchProductByCode(this.value);
             }
-        }
-    });
+        });
+        
+        // Product code input change - detect if user changes code during edit mode
+        productCodeEl.addEventListener('input', function(e) {
+            if (isEditingMode && editingItemCode && this.value !== editingItemCode) {
+                const newCode = this.value;
+                cancelEditMode();
+                
+                if (newCode && newCode.length >= 3) {
+                    setTimeout(() => {
+                        const pc = document.getElementById('productCode');
+                        if (pc && pc.value === newCode) {
+                            searchProductByCode(newCode);
+                        }
+                    }, 300);
+                }
+            }
+        });
+    }
     
     // Quantity input
-    document.getElementById('quantity').addEventListener('keypress', function(e) {
-        if (e.key === 'Enter') {
-            handleQuantityEnter();
-        }
-    });
-    
-    document.getElementById('quantity').addEventListener('input', function() {
-        calculateItemTotal();
-    });
+    const quantityEl = document.getElementById('quantity');
+    if (quantityEl) {
+        quantityEl.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                handleQuantityEnter();
+            }
+        });
+        
+        quantityEl.addEventListener('input', function() {
+            calculateItemTotal();
+        });
+    }
     
     // Search input with keyboard navigation
-    document.getElementById('searchInput').addEventListener('input', function() {
-        loadSearchResults(this.value);
-        keyboardSelectedIndex = -1;
-    });
-    
-    document.getElementById('searchInput').addEventListener('keydown', function(e) {
-        handleSearchKeyNavigation(e);
-    });
+    const searchInputEl = document.getElementById('searchInput');
+    if (searchInputEl) {
+        searchInputEl.addEventListener('input', function() {
+            loadSearchResults(this.value);
+            keyboardSelectedIndex = -1;
+        });
+        
+        searchInputEl.addEventListener('keydown', function(e) {
+            handleSearchKeyNavigation(e);
+        });
+    }
     
     // Payment amount input
-    document.getElementById('paymentAmount').addEventListener('keypress', function(e) {
-        if (e.key === 'Enter') {
-            processTransaction();
-        }
-    });
+    const paymentAmountEl = document.getElementById('paymentAmount');
+    if (paymentAmountEl) {
+        paymentAmountEl.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                processTransaction();
+            }
+        });
+    }
 }
 
 // Handle quantity enter
@@ -1813,6 +1945,7 @@ function searchProductByCode(code) {
         return;
     }
     
+    // Fetch a broader set so we can reliably detect exact code matches first
     fetch(`/sales/api/cari_barang?q=${encodeURIComponent(code)}&limit=1`)
         .then(response => response.json())
         .then(data => {
